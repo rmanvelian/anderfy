@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_BULLET_CHARS } from "@/lib/bulletLength";
 import { newId } from "@/lib/id";
 import { chatStructured, isLlmConfigured } from "@/lib/llmClient";
 import { mockResumeData } from "@/lib/mock-data";
@@ -136,7 +137,7 @@ Output JSON of this exact shape:
 Rules:
 - List ids in your desired display order (most relevant to this job posting first). You do not need to include every entry — any you omit will automatically be kept, unchanged, in their original position, so only include an entry if you're reordering it and/or rewriting its bullets.
 - Every value in "skillsAndInterests" must be copied verbatim (exact spelling) from the candidate's original skillsAndInterests — you may select a relevant subset and reorder them, but never add a new one.
-- Keep each bullet roughly one line, starting with a strong past-tense action verb, echoing job-posting language only where it truthfully matches something the candidate already did.
+- Keep each bullet no longer than roughly two lines (about ${MAX_BULLET_CHARS} characters) when rendered on the resume — ideally one line — starting with a strong past-tense action verb, echoing job-posting language only where it truthfully matches something the candidate already did.
 - Aim for at most 3-4 bullets for the most relevant/recent entries and 2-3 for others, to help the final resume fit one page.`;
 
 export async function tailorResumeToJob(

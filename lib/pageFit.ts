@@ -4,7 +4,7 @@ import type { ResumeData } from "@/types/resume";
 // content is likely to spill past the one-page target used by the Anderson
 // format. Tuned against AndersonResumeDocument's 11pt body text, 0.5in
 // margins, and one-blank-line spacing between entries/sections.
-const CHARS_PER_BULLET_LINE = 88;
+export const CHARS_PER_BULLET_LINE = 88;
 const AVAILABLE_LINES_ONE_PAGE = 42;
 
 function bulletLines(bullets?: string[]): number {

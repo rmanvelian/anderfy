@@ -1,3 +1,4 @@
+import { exceedsMaxBulletLength } from "@/lib/bulletLength";
 import { introducesUnverifiedNumbers } from "@/lib/numberGuard";
 
 interface WithIdAndBullets {
@@ -25,8 +26,9 @@ export interface ProposedEntry {
  *     dropped entirely (this is what catches things like an LLM inventing
  *     "relevant coursework" for an education entry that listed none).
  *  2. The rewritten bullets must not introduce a number absent from the
- *     original bullets (see `introducesUnverifiedNumbers`); otherwise the
- *     original bullets are kept as-is.
+ *     original bullets (see `introducesUnverifiedNumbers`), and none of them
+ *     may run past the ~two-line budget (see `exceedsMaxBulletLength`);
+ *     otherwise the original bullets are kept as-is.
  *
  * Entries the model doesn't mention are appended afterward, unchanged, in
  * their original relative order — nothing from the source resume is ever
@@ -52,7 +54,11 @@ export function mergeOrderedEntries<T extends WithIdAndBullets>(
     if (sourceBullets.length === 0) {
       // Nothing here to legitimately rephrase — anything proposed would be invented.
       safeBullets = [];
-    } else if (proposedBullets.length > 0 && !introducesUnverifiedNumbers(proposedBullets, sourceBullets)) {
+    } else if (
+      proposedBullets.length > 0 &&
+      !introducesUnverifiedNumbers(proposedBullets, sourceBullets) &&
+      !exceedsMaxBulletLength(proposedBullets)
+    ) {
       safeBullets = proposedBullets;
     } else {
       safeBullets = sourceBullets;

@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 const FEATURES = [
   {
     icon: Upload,
-    title: "Start anywhere",
+    title: "Supports multiple upload types",
     description:
       "Upload an existing resume (PDF/DOCX), paste rough background text, or start from a completely blank page.",
   },
@@ -51,7 +51,7 @@ export default function Home() {
             UCLA Anderson-style resume format
           </span>
           <h1 className="text-4xl text-white sm:text-5xl">
-            Build an Anderson-formatted resume, tailored to the job you want
+            Build an Anderson-formatted resume, tailored to the job you want.
           </h1>
           <p className="max-w-2xl text-lg text-white/85">
             Anderfy turns your background — an existing resume or just a rough summary — into a polished,
@@ -65,13 +65,9 @@ export default function Home() {
               size="lg"
               className="bg-ucla-gold text-ucla-darkest-blue hover:bg-ucla-darker-gold"
             >
-              Get started
+              Anderfy your resume
             </Button>
           </div>
-          <p className="max-w-xl text-xs text-white/70">
-            This is a best-effort recreation of Anderson&apos;s published formatting guidance — the official Parker
-            CMC template is distributed privately to admitted students and isn&apos;t publicly available.
-          </p>
         </div>
         {/* Decorative-only strip completing the official gradient into Lighter Blue — no text overlays it. */}
         <div className="h-8 w-full bg-gradient-to-b from-ucla-blue to-ucla-lighter-blue" aria-hidden />

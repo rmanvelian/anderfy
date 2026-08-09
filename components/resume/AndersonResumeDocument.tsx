@@ -43,6 +43,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.75,
     borderBottomColor: "#000000",
     marginTop: 1,
+    marginBottom: 5,
   },
   entry: {
     marginBottom: GAP,
