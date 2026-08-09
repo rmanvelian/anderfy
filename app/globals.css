@@ -4,6 +4,14 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * UCLA brand palette (https://brand.ucla.edu/identity/colors).
+ * Primary/secondary swatches only — tertiary colors are reserved for
+ * graphics, not applied to UI chrome here. The official "Brand Gradient"
+ * (Darker Blue -> UCLA Blue -> Lighter Blue) is used as a background wash;
+ * per UCLA's own accessibility guidance, no text is ever overprinted on the
+ * lighter end of that gradient.
+ */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -46,75 +54,85 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Raw UCLA brand swatches, exposed as `bg-ucla-*` / `text-ucla-*` / `from-ucla-*` utilities. */
+  --color-ucla-blue: #2774ae;
+  --color-ucla-gold: #ffd100;
+  --color-ucla-darkest-blue: #003b5c;
+  --color-ucla-darker-blue: #005587;
+  --color-ucla-lighter-blue: #8bb8e8;
+  --color-ucla-lightest-blue: #daebfe;
+  --color-ucla-darkest-gold: #ffb81c;
+  --color-ucla-darker-gold: #ffc72c;
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --background: #ffffff;
+  --foreground: #0b2436;
+  --card: #ffffff;
+  --card-foreground: #0b2436;
+  --popover: #ffffff;
+  --popover-foreground: #0b2436;
+  --primary: #2774ae;
+  --primary-foreground: #ffffff;
+  --secondary: #daebfe;
+  --secondary-foreground: #003b5c;
+  --muted: #eff5fc;
+  --muted-foreground: #4b6478;
+  --accent: #eaf3fe;
+  --accent-foreground: #0b2436;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --border: #d7e4f0;
+  --input: #d7e4f0;
+  --ring: #2774ae;
+  --chart-1: #daebfe;
+  --chart-2: #8bb8e8;
+  --chart-3: #2774ae;
+  --chart-4: #005587;
+  --chart-5: #003b5c;
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: #f7fafd;
+  --sidebar-foreground: #0b2436;
+  --sidebar-primary: #2774ae;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eaf3fe;
+  --sidebar-accent-foreground: #0b2436;
+  --sidebar-border: #d7e4f0;
+  --sidebar-ring: #2774ae;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --background: #071620;
+  --foreground: #eaf3fe;
+  --card: #0b2436;
+  --card-foreground: #eaf3fe;
+  --popover: #0b2436;
+  --popover-foreground: #eaf3fe;
+  --primary: #8bb8e8;
+  --primary-foreground: #003b5c;
+  --secondary: #10314a;
+  --secondary-foreground: #daebfe;
+  --muted: #10314a;
+  --muted-foreground: #9db9d1;
+  --accent: #123a58;
+  --accent-foreground: #eaf3fe;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: #8bb8e8;
+  --chart-1: #daebfe;
+  --chart-2: #8bb8e8;
+  --chart-3: #2774ae;
+  --chart-4: #005587;
+  --chart-5: #ffd100;
+  --sidebar: #0b2436;
+  --sidebar-foreground: #eaf3fe;
+  --sidebar-primary: #8bb8e8;
+  --sidebar-primary-foreground: #003b5c;
+  --sidebar-accent: #123a58;
+  --sidebar-accent-foreground: #eaf3fe;
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: #8bb8e8;
 }
 
 @layer base {
@@ -123,6 +141,13 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* A soft, brand-tinted wash at the top of every page — subtle enough that
+       all body copy (which sits on white/near-white cards) stays fully legible. */
+    background-image: linear-gradient(180deg, var(--color-ucla-lightest-blue) 0%, var(--background) 480px);
+    background-repeat: no-repeat;
+  }
+  .dark body {
+    background-image: linear-gradient(180deg, var(--color-ucla-darker-blue) 0%, var(--background) 480px);
   }
   html {
     @apply font-sans;

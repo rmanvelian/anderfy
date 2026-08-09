@@ -58,7 +58,7 @@ export default function BuildPage() {
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
       <div className="flex items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2 font-semibold">
-          <GraduationCap className="size-5" />
+          <GraduationCap className="size-5 text-ucla-blue" />
           Anderfy
         </Link>
         <Button variant="ghost" size="sm" onClick={handleStartOver}>

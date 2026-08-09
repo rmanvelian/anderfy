@@ -23,9 +23,9 @@ export function WizardStepper({ current }: { current: WizardStepKey }) {
           <li key={step.key} className="flex flex-1 items-center gap-2">
             <div
               className={cn(
-                "flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-medium",
+                "flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold",
                 isDone && "border-primary bg-primary text-primary-foreground",
-                isCurrent && "border-primary text-primary",
+                isCurrent && "border-ucla-gold bg-ucla-gold text-ucla-darkest-blue",
                 !isDone && !isCurrent && "border-muted-foreground/30 text-muted-foreground"
               )}
             >
