@@ -46,17 +46,15 @@ export default function Home() {
           Blue wherever headline text sits so contrast stays safely high. */}
       <section className="relative overflow-hidden bg-gradient-to-b from-ucla-darkest-blue via-ucla-blue to-ucla-blue">
         <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-6 px-4 py-20 text-center sm:px-6">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-ucla-gold px-3 py-1 text-xs font-semibold text-ucla-darkest-blue">
-            <GraduationCap className="size-3.5" />
-            UCLA Anderson-style resume format
-          </span>
-          <h1 className="text-4xl text-white sm:text-5xl">
-            Build an Anderson-formatted resume, tailored to the job you want.
+          <h1 className="text-4xl text-ucla-gold sm:text-5xl">
+            Anderfy: AI-Enabled Anderson Resume Builder
           </h1>
-          <p className="max-w-2xl text-lg text-white/85">
-            Anderfy turns your background — an existing resume or just a rough summary — into a polished,
-            one-page resume in the UCLA Anderson / Parker Career Management Center style, tailored to a specific
-            job posting.
+          <p className="text-4xl text-white sm:text-5xl">
+            Build an Anderson-formatted resume, tailored to the job you want.
+          </p>
+          <p className="max-w-2xl text-xl text-white/85 sm:text-2xl">
+            Anderfy turns your background into a polished, one-page resume in the UCLA Anderson format,
+            tailored to a specific job posting.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <HeroCta />
@@ -92,7 +90,7 @@ export default function Home() {
       >
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-16 sm:px-6">
           <div className="max-w-2xl">
-            <h2 className="text-2xl text-ucla-blue sm:text-3xl">Anderfy Your Resume.</h2>
+            <h2 className="text-2xl text-ucla-blue sm:text-3xl">Anderfy Your Resume</h2>
             <p className="mt-2 text-muted-foreground">
               Upload or paste your background, add a job posting, then review and export.
             </p>
