@@ -148,6 +148,7 @@
   }
   html {
     @apply font-sans;
+    scroll-behavior: smooth;
   }
   /* Matches anderson.ucla.edu's global heading rule: bold, tight leading,
      a touch of letter-spacing, in the site's sans-serif family. */

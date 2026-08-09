@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { FileEdit, FileOutput, GraduationCap, Sparkles, Target, Upload } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { HeroCta, BUILD_SECTION_ID } from "@/components/landing/HeroCta";
+import { BuildWizard } from "@/components/wizard/BuildWizard";
 import { Card, CardContent } from "@/components/ui/card";
 
 const FEATURES = [
@@ -59,14 +59,7 @@ export default function Home() {
             job posting.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <Button
-              render={<Link href="/build" />}
-              nativeButton={false}
-              size="lg"
-              className="bg-ucla-gold text-ucla-darkest-blue hover:bg-ucla-darker-gold"
-            >
-              Anderfy your resume
-            </Button>
+            <HeroCta />
           </div>
         </div>
         {/* Decorative-only strip completing the official gradient into Lighter Blue — no text overlays it. */}
@@ -90,6 +83,23 @@ export default function Home() {
               </Card>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section
+        id={BUILD_SECTION_ID}
+        aria-label="Build your Anderson resume"
+        className="scroll-mt-6 border-t bg-background"
+      >
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-12 sm:px-6">
+          <div className="max-w-2xl">
+            <span className="eyebrow">Build</span>
+            <h2 className="mt-2 text-2xl sm:text-3xl">Anderfy your resume</h2>
+            <p className="mt-2 text-muted-foreground">
+              Upload or paste your background, add a job posting, then review and export.
+            </p>
+          </div>
+          <BuildWizard />
         </div>
       </section>
     </div>
