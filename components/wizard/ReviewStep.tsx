@@ -146,7 +146,7 @@ export function ReviewStep({
             </Button>
           </div>
         </div>
-        <div className="mx-auto w-full max-w-3xl overflow-hidden rounded-md border bg-white aspect-[8.5/11]">
+        <div className="w-full overflow-hidden rounded-md border bg-white aspect-[8.5/11]">
           {regenerating ? (
             <PreviewSkeleton label="Generating a new resume…" />
           ) : (
