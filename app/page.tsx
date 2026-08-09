@@ -58,7 +58,7 @@ export default function Home() {
           </p>
         </div>
         {/* Center the CTA in the space between the supporting copy and the section divider. */}
-        <div className="flex items-center justify-center py-14 sm:py-16">
+        <div className="flex items-center justify-center py-10 sm:py-12">
           <HeroCta />
         </div>
         {/* Decorative-only strip completing the official gradient into Lighter Blue — no text overlays it. */}
