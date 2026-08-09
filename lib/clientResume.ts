@@ -1,6 +1,7 @@
-import { extractResumeHeuristically, tailorResumeHeuristically } from "@/lib/heuristicResume";
-import { extractTextFromFile, UnsupportedFileTypeError } from "@/lib/parseFile";
 import { withBasePath } from "@/lib/apiBase";
+import { extractResumeHeuristically, tailorResumeHeuristically } from "@/lib/heuristicResume";
+import { fitResumeToOnePage } from "@/lib/pageFit";
+import { extractTextFromFile, UnsupportedFileTypeError } from "@/lib/parseFile";
 import type { JobPosting, ResumeData } from "@/types/resume";
 
 /**
@@ -70,7 +71,7 @@ async function parseResumeLocally(input: {
     );
   }
 
-  return extractResumeHeuristically(rawText);
+  return fitResumeToOnePage(extractResumeHeuristically(rawText));
 }
 
 export async function tailorResumeClient(
@@ -95,7 +96,7 @@ export async function tailorResumeClient(
     if (error instanceof Error && !isNetworkOrMissingApi(error)) throw error;
   }
 
-  return tailorResumeHeuristically(resume, jobPosting);
+  return fitResumeToOnePage(tailorResumeHeuristically(resume, jobPosting));
 }
 
 export async function fetchJobPostingText(url: string): Promise<string> {

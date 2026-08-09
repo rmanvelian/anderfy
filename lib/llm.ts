@@ -3,6 +3,7 @@ import { MAX_BULLET_CHARS } from "@/lib/bulletLength";
 import { extractResumeHeuristically, tailorResumeHeuristically } from "@/lib/heuristicResume";
 import { newId } from "@/lib/id";
 import { chatStructured, isLlmConfigured } from "@/lib/llmClient";
+import { fitResumeToOnePage } from "@/lib/pageFit";
 import { mergeOrderedEntries, sanitizeStringList } from "@/lib/tailorMerge";
 import type { JobPosting, ResumeData } from "@/types/resume";
 
@@ -84,14 +85,14 @@ Rules:
 
 export async function extractResumeFromText(rawText: string): Promise<ResumeData> {
   if (isMockMode()) {
-    return extractResumeHeuristically(rawText);
+    return fitResumeToOnePage(extractResumeHeuristically(rawText));
   }
   const parsed = await chatStructured(
     EXTRACT_SYSTEM_PROMPT,
     `Raw resume text:\n"""\n${rawText.slice(0, 20000)}\n"""`,
     resumeSchema
   );
-  return attachIds(parsed);
+  return fitResumeToOnePage(attachIds(parsed));
 }
 
 // --- Tailoring ---
@@ -145,7 +146,7 @@ export async function tailorResumeToJob(
   jobPosting: JobPosting
 ): Promise<ResumeData> {
   if (isMockMode()) {
-    return tailorResumeHeuristically(resume, jobPosting);
+    return fitResumeToOnePage(tailorResumeHeuristically(resume, jobPosting));
   }
 
   const userPrompt = `Candidate resume JSON (source of truth — do not add facts beyond what's here):\n${JSON.stringify(
@@ -159,7 +160,7 @@ export async function tailorResumeToJob(
 
   const parsed = await chatStructured(TAILOR_SYSTEM_PROMPT, userPrompt, tailorResponseSchema);
 
-  return {
+  return fitResumeToOnePage({
     contact: resume.contact,
     education: mergeOrderedEntries(resume.education, parsed.education),
     experience: mergeOrderedEntries(resume.experience, parsed.experience),
@@ -170,5 +171,5 @@ export async function tailorResumeToJob(
       volunteer: sanitizeStringList(resume.skillsAndInterests.volunteer, parsed.skillsAndInterests?.volunteer),
       interests: sanitizeStringList(resume.skillsAndInterests.interests, parsed.skillsAndInterests?.interests),
     },
-  };
+  });
 }

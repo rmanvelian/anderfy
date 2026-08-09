@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { Download, FileType, Loader2, Sparkles } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PageFitIndicator } from "@/components/resume/PageFitIndicator";
 import { ResumeEditor } from "@/components/resume/ResumeEditor";
 import { downloadResumeExport } from "@/lib/clientExport";
+import { estimatePageFit, fitResumeToOnePage } from "@/lib/pageFit";
 import type { JobPosting, ResumeData } from "@/types/resume";
 
 const ResumePdfPreview = dynamic(
@@ -18,7 +19,7 @@ const ResumePdfPreview = dynamic(
 
 function PreviewSkeleton() {
   return (
-    <div className="flex h-full min-h-[600px] w-full items-center justify-center rounded-md border bg-muted/30 text-sm text-muted-foreground">
+    <div className="flex aspect-[8.5/11] w-full items-center justify-center rounded-md border bg-muted/30 text-sm text-muted-foreground">
       Loading preview…
     </div>
   );
@@ -40,11 +41,20 @@ export function ReviewStep({
   const [exporting, setExporting] = useState<"pdf" | "docx" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Keep the draft on one page even if the user pastes a lot into the editor.
+  useEffect(() => {
+    if (estimatePageFit(resume).fitsOnePage) return;
+    const fitted = fitResumeToOnePage(resume);
+    if (JSON.stringify(fitted) !== JSON.stringify(resume)) {
+      onChange(fitted);
+    }
+  }, [resume, onChange]);
+
   const handleExport = async (kind: "pdf" | "docx") => {
     setExporting(kind);
     setError(null);
     try {
-      await downloadResumeExport(kind, resume);
+      await downloadResumeExport(kind, fitResumeToOnePage(resume));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Export failed.");
     } finally {
@@ -53,7 +63,7 @@ export function ReviewStep({
   };
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4">
         <Card>
           <CardContent className="flex flex-col gap-4 pt-2">
@@ -65,7 +75,7 @@ export function ReviewStep({
                   Everything here is editable — AI output is a draft, not the final word.
                 </p>
               </div>
-              <PageFitIndicator resume={resume} />
+              <PageFitIndicator />
             </div>
 
             {error && (
@@ -91,7 +101,7 @@ export function ReviewStep({
       </div>
 
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold">Live preview</h2>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => handleExport("docx")} disabled={exporting !== null}>
@@ -104,7 +114,7 @@ export function ReviewStep({
             </Button>
           </div>
         </div>
-        <div className="min-h-[720px] flex-1">
+        <div className="mx-auto w-full max-w-3xl overflow-hidden rounded-md border bg-white aspect-[8.5/11]">
           <ResumePdfPreview resume={resume} />
         </div>
       </div>

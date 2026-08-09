@@ -1,11 +1,12 @@
-import type { ResumeData } from "@/types/resume";
+import type { ResumeData, SkillsAndInterests } from "@/types/resume";
 
-// Rough heuristic (not a real PDF layout pass) to warn users when their
-// content is likely to spill past the one-page target used by the Anderson
-// format. Tuned against AndersonResumeDocument's 11pt body text, 0.5in
+// Rough heuristic (not a real PDF layout pass) for the one-page Anderson
+// target. Tuned against AndersonResumeDocument's 11pt body text, 0.5in
 // margins, and one-blank-line spacing between entries/sections.
 export const CHARS_PER_BULLET_LINE = 88;
-const AVAILABLE_LINES_ONE_PAGE = 42;
+// Leave a small cushion so borderline content doesn't spill past one page
+// in the real PDF/DOCX layout even if the line estimate is slightly optimistic.
+const AVAILABLE_LINES_ONE_PAGE = 40;
 
 function bulletLines(bullets?: string[]): number {
   if (!bullets) return 0;
@@ -57,4 +58,82 @@ export function estimatePageFit(resume: ResumeData): PageFitEstimate {
     fitsOnePage: estimatedLines <= AVAILABLE_LINES_ONE_PAGE,
     overflowRatio: estimatedLines / AVAILABLE_LINES_ONE_PAGE,
   };
+}
+
+function cloneResume(resume: ResumeData): ResumeData {
+  return {
+    contact: { ...resume.contact },
+    education: resume.education.map((e) => ({ ...e, bullets: [...(e.bullets ?? [])] })),
+    experience: resume.experience.map((e) => ({ ...e, bullets: [...e.bullets] })),
+    skillsAndInterests: {
+      certifications: [...(resume.skillsAndInterests.certifications ?? [])],
+      languages: [...(resume.skillsAndInterests.languages ?? [])],
+      software: [...(resume.skillsAndInterests.software ?? [])],
+      volunteer: [...(resume.skillsAndInterests.volunteer ?? [])],
+      interests: [...(resume.skillsAndInterests.interests ?? [])],
+    },
+  };
+}
+
+/** Drop the last item from the first non-empty Additional list (least critical). */
+function trimAdditional(skills: SkillsAndInterests): boolean {
+  const keys: (keyof SkillsAndInterests)[] = [
+    "interests",
+    "volunteer",
+    "software",
+    "languages",
+    "certifications",
+  ];
+  for (const key of keys) {
+    const list = skills[key];
+    if (list && list.length > 0) {
+      list.pop();
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Trim bullets / Additional items from the end until the resume is estimated
+ * to fit on one page. Prefers dropping the last bullet of the longest, then
+ * oldest experience entries, then education, then Additional — never invents
+ * content, only removes.
+ */
+export function fitResumeToOnePage(resume: ResumeData): ResumeData {
+  const next = cloneResume(resume);
+  let guard = 200;
+
+  while (!estimatePageFit(next).fitsOnePage && guard-- > 0) {
+    // Prefer trimming from the bottom of the resume (oldest experience first
+    // in reverse-chronological lists sit last).
+    let trimmed = false;
+
+    for (let i = next.experience.length - 1; i >= 0; i--) {
+      if (next.experience[i].bullets.length > 0) {
+        next.experience[i].bullets.pop();
+        trimmed = true;
+        break;
+      }
+    }
+    if (trimmed) continue;
+
+    for (let i = next.education.length - 1; i >= 0; i--) {
+      const bullets = next.education[i].bullets ?? [];
+      if (bullets.length > 0) {
+        bullets.pop();
+        next.education[i].bullets = bullets;
+        trimmed = true;
+        break;
+      }
+    }
+    if (trimmed) continue;
+
+    if (trimAdditional(next.skillsAndInterests)) continue;
+
+    // Nothing left to remove — stop even if still estimated over (empty shell).
+    break;
+  }
+
+  return next;
 }
