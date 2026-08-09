@@ -1,22 +1,12 @@
-import OpenAI from "openai";
 import { z } from "zod";
 import { newId } from "@/lib/id";
+import { chatStructured, isLlmConfigured } from "@/lib/llmClient";
 import { mockResumeData } from "@/lib/mock-data";
 import { mergeOrderedEntries, sanitizeStringList } from "@/lib/tailorMerge";
 import type { JobPosting, ResumeData } from "@/types/resume";
 
-const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
-
 export function isMockMode(): boolean {
-  return process.env.MOCK_LLM === "1" || !process.env.OPENAI_API_KEY;
-}
-
-let client: OpenAI | null = null;
-function getClient(): OpenAI {
-  if (!client) {
-    client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  }
-  return client;
+  return process.env.MOCK_LLM === "1" || !isLlmConfigured();
 }
 
 // --- Schema used to validate the JSON the model returns (ids are added afterwards). ---
@@ -40,6 +30,14 @@ const experienceSchema = z.object({
   bullets: bulletsSchema,
 });
 
+const skillsAndInterestsSchema = z.object({
+  certifications: z.array(z.string()).optional().default([]),
+  languages: z.array(z.string()).optional().default([]),
+  software: z.array(z.string()).optional().default([]),
+  volunteer: z.array(z.string()).optional().default([]),
+  interests: z.array(z.string()).optional().default([]),
+});
+
 const resumeSchema = z.object({
   contact: z.object({
     name: z.string().default(""),
@@ -49,15 +47,7 @@ const resumeSchema = z.object({
   }),
   education: z.array(educationSchema).default([]),
   experience: z.array(experienceSchema).default([]),
-  skillsAndInterests: z
-    .object({
-      certifications: z.array(z.string()).optional().default([]),
-      languages: z.array(z.string()).optional().default([]),
-      software: z.array(z.string()).optional().default([]),
-      volunteer: z.array(z.string()).optional().default([]),
-      interests: z.array(z.string()).optional().default([]),
-    })
-    .optional(),
+  skillsAndInterests: skillsAndInterestsSchema.optional(),
 });
 
 type RawResume = z.infer<typeof resumeSchema>;
@@ -69,22 +59,6 @@ function attachIds(raw: RawResume): ResumeData {
     experience: raw.experience.map((e) => ({ id: newId(), ...e })),
     skillsAndInterests: raw.skillsAndInterests ?? {},
   };
-}
-
-async function chatJson(system: string, user: string): Promise<unknown> {
-  const openai = getClient();
-  const completion = await openai.chat.completions.create({
-    model: MODEL,
-    temperature: 0.4,
-    response_format: { type: "json_object" },
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: user },
-    ],
-  });
-  const content = completion.choices[0]?.message?.content;
-  if (!content) throw new Error("The model returned an empty response.");
-  return JSON.parse(content);
 }
 
 const RESUME_JSON_SHAPE = `{
@@ -105,18 +79,17 @@ Rules:
 - Split multi-line bullet fragments into separate strings in the "bullets" array.
 - For education bullets, use labeled bullets in the form "Honors: ...", "Leadership: ...", or "Membership: ..." when that information is present (e.g. honors/awards, extracurricular leadership roles, club memberships) — this mirrors the Anderson resume format's convention.
 - Volunteering/leadership activities that are NOT part of a person's formal education should go in "skillsAndInterests.volunteer" instead.
-- If a field is unknown, use an empty string ("") or empty array ([]) rather than omitting the key.
-- Output ONLY the JSON object, no commentary.`;
+- If a field is unknown, use an empty string ("") or empty array ([]) rather than omitting the key.`;
 
 export async function extractResumeFromText(rawText: string): Promise<ResumeData> {
   if (isMockMode()) {
     return mockResumeData();
   }
-  const json = await chatJson(
+  const parsed = await chatStructured(
     EXTRACT_SYSTEM_PROMPT,
-    `Raw resume text:\n"""\n${rawText.slice(0, 20000)}\n"""`
+    `Raw resume text:\n"""\n${rawText.slice(0, 20000)}\n"""`,
+    resumeSchema
   );
-  const parsed = resumeSchema.parse(json);
   return attachIds(parsed);
 }
 
@@ -142,15 +115,7 @@ const tailorResponseSchema = z.object({
   experience: z
     .array(z.object({ id: z.string(), bullets: z.array(z.string()).default([]) }))
     .default([]),
-  skillsAndInterests: z
-    .object({
-      certifications: z.array(z.string()).optional().default([]),
-      languages: z.array(z.string()).optional().default([]),
-      software: z.array(z.string()).optional().default([]),
-      volunteer: z.array(z.string()).optional().default([]),
-      interests: z.array(z.string()).optional().default([]),
-    })
-    .optional(),
+  skillsAndInterests: skillsAndInterestsSchema.optional(),
 });
 
 const TAILOR_SYSTEM_PROMPT = `You are an expert MBA career coach who specializes in the UCLA Anderson School of Management (Parker Career Management Center) resume format: one page, reverse-chronological, conservative business formatting, EDUCATION then EXPERIENCE then ADDITIONAL, with every experience bullet using the S-T-A-R framework (strong past-tense action verb, quantified result) and education bullets using labeled bullets like "Honors: ...", "Leadership: ...", "Membership: ...".
@@ -172,8 +137,7 @@ Rules:
 - List ids in your desired display order (most relevant to this job posting first). You do not need to include every entry — any you omit will automatically be kept, unchanged, in their original position, so only include an entry if you're reordering it and/or rewriting its bullets.
 - Every value in "skillsAndInterests" must be copied verbatim (exact spelling) from the candidate's original skillsAndInterests — you may select a relevant subset and reorder them, but never add a new one.
 - Keep each bullet roughly one line, starting with a strong past-tense action verb, echoing job-posting language only where it truthfully matches something the candidate already did.
-- Aim for at most 3-4 bullets for the most relevant/recent entries and 2-3 for others, to help the final resume fit one page.
-- Output ONLY the JSON object described above (no commentary, no markdown fences).`;
+- Aim for at most 3-4 bullets for the most relevant/recent entries and 2-3 for others, to help the final resume fit one page.`;
 
 export async function tailorResumeToJob(
   resume: ResumeData,
@@ -192,8 +156,7 @@ export async function tailorResumeToJob(
     12000
   )}\n"""`;
 
-  const json = await chatJson(TAILOR_SYSTEM_PROMPT, userPrompt);
-  const parsed = tailorResponseSchema.parse(json);
+  const parsed = await chatStructured(TAILOR_SYSTEM_PROMPT, userPrompt, tailorResponseSchema);
 
   return {
     contact: resume.contact,

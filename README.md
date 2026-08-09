@@ -41,7 +41,8 @@ Tailoring is deliberately scoped so the model can't introduce new facts about th
 ## Tech stack
 
 - **Next.js (App Router) + TypeScript + Tailwind CSS + shadcn/ui**
-- **OpenAI API** for resume parsing and job-tailored rewriting (see `lib/llm.ts`, `lib/tailorMerge.ts`)
+- **Claude Sonnet 5 (Anthropic) or OpenAI** for resume parsing and job-tailored rewriting — see
+  `lib/llmClient.ts` (provider selection + structured-output calls) and `lib/llm.ts` (prompts/schemas)
 - **`@react-pdf/renderer`** renders the resume for both the on-screen preview and the downloaded PDF, so
   they're always in sync (`components/resume/AndersonResumeDocument.tsx`)
 - **`docx`** generates an editable Word version with equivalent structure/styling (`lib/docx-export.ts`)
@@ -52,18 +53,30 @@ Tailoring is deliberately scoped so the model can't introduce new facts about th
 
 ```bash
 npm install
-cp .env.example .env.local   # then fill in OPENAI_API_KEY
+cp .env.example .env.local   # then fill in ANTHROPIC_API_KEY (preferred) or OPENAI_API_KEY
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-### Running without an OpenAI key
+### Choosing an AI provider
 
-Set `MOCK_LLM=1` in your environment (see `.env.example`) to bypass the OpenAI API and use deterministic
-sample data for resume parsing/tailoring. This is useful for exercising the upload → edit → export pipeline
-without a live API key. `lib/llm.ts` also automatically falls back to mock mode if `OPENAI_API_KEY` isn't
-set at all.
+`lib/llmClient.ts` auto-detects which provider to use: **Anthropic's Claude Sonnet 5** if
+`ANTHROPIC_API_KEY` is set, otherwise **OpenAI** if `OPENAI_API_KEY` is set. Set `LLM_PROVIDER=anthropic` or
+`LLM_PROVIDER=openai` to force one explicitly. Both providers use native structured-output support (zod
+schema in, validated object out) rather than hand-rolled JSON parsing.
+
+### Running without an API key
+
+Set `MOCK_LLM=1` in your environment (see `.env.example`) to bypass real AI calls entirely and use
+deterministic mock data for resume parsing/tailoring. This is useful for exercising the upload → edit →
+export pipeline without a live API key. `lib/llm.ts` also automatically falls back to mock mode if neither
+`ANTHROPIC_API_KEY` nor `OPENAI_API_KEY` is set.
+
+**Important:** in mock mode, the app always returns the same fixed sample resume ("Jordan Rivera") no
+matter what you upload or paste — that's expected in mock mode, but if you have a real API key configured
+and are still seeing generic/sample output instead of your own data, double-check `MOCK_LLM` isn't set to
+`1` somewhere in your environment.
 
 ## Project structure
 
@@ -80,7 +93,8 @@ components/
   resume/                  the Anderson-format PDF template, PDF preview, and structured editor
   wizard/                  the three wizard steps + stepper
 lib/
-  llm.ts                   OpenAI wrapper (+ mock mode) for parsing/tailoring
+  llmClient.ts             provider-agnostic structured LLM calls (Anthropic Claude Sonnet 5 / OpenAI)
+  llm.ts                   prompts, schemas, and mock-mode fallback for parsing/tailoring
   tailorMerge.ts           merges AI-proposed bullets/order back onto the original resume's facts
   numberGuard.ts           flags/reverts bullets that introduce an unverified number
   parseFile.ts             PDF/DOCX -> raw text extraction
