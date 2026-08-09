@@ -11,6 +11,7 @@ import { ResumeEditor } from "@/components/resume/ResumeEditor";
 import { downloadResumeExport } from "@/lib/clientExport";
 import { tailorResumeClient } from "@/lib/clientResume";
 import { estimatePageFit, fitResumeToOnePage } from "@/lib/pageFit";
+import { PREVIEW_LETTERBOX_BG } from "@/lib/previewTheme";
 import type { JobPosting, ResumeData } from "@/types/resume";
 
 const ResumePdfPreview = dynamic(
@@ -20,7 +21,10 @@ const ResumePdfPreview = dynamic(
 
 function PreviewSkeleton({ label = "Loading preview…" }: { label?: string }) {
   return (
-    <div className="flex h-full w-full items-center justify-center bg-muted/30 text-sm text-muted-foreground">
+    <div
+      className="flex h-full w-full items-center justify-center text-sm text-white/70"
+      style={{ backgroundColor: PREVIEW_LETTERBOX_BG }}
+    >
       {label}
     </div>
   );
@@ -146,7 +150,10 @@ export function ReviewStep({
             </Button>
           </div>
         </div>
-        <div className="w-full overflow-hidden rounded-md border bg-white aspect-[8.5/11]">
+        <div
+          className="w-full overflow-hidden rounded-md border aspect-[8.5/11]"
+          style={{ backgroundColor: PREVIEW_LETTERBOX_BG }}
+        >
           {regenerating ? (
             <PreviewSkeleton label="Generating a new resume…" />
           ) : (
