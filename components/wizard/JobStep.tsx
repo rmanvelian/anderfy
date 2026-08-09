@@ -140,11 +140,8 @@ export function JobStep({
         )}
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="ghost" onClick={onBack}>
+          <Button variant="outline" onClick={onBack}>
             Back
-          </Button>
-          <Button variant="outline" onClick={onSkipTailoring}>
-            Skip — edit manually
           </Button>
           <Button onClick={handleTailor} disabled={tailoring}>
             {tailoring ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
