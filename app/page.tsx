@@ -46,9 +46,11 @@ export default function Home() {
           Blue wherever headline text sits so contrast stays safely high. */}
       <section className="relative overflow-hidden bg-gradient-to-b from-ucla-darkest-blue via-ucla-blue to-ucla-blue">
         <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-6 px-4 py-20 text-center sm:px-6">
-          <h1 className="flex flex-col gap-4 text-4xl text-ucla-gold sm:gap-5 sm:text-5xl">
-            <span>Anderfy</span>
-            <span className="font-normal">An AI-Powered Anderson Resume Builder</span>
+          <h1 className="flex flex-col gap-4 text-ucla-gold sm:gap-5">
+            <span className="text-4xl sm:text-5xl">Anderfy</span>
+            <span className="text-lg font-normal sm:text-xl md:text-2xl">
+              An AI-Powered Anderson Resume Builder
+            </span>
           </h1>
           <p className="text-4xl text-white sm:text-5xl">
             Build an Anderson-formatted resume, tailored to the job you want.
