@@ -7,6 +7,7 @@ import {
   TabStopType,
   TextRun,
 } from "docx";
+import { additionalBulletLines } from "@/lib/additionalSection";
 import { splitBulletLabel } from "@/lib/bulletLabel";
 import type { ResumeData } from "@/types/resume";
 
@@ -147,26 +148,8 @@ function buildResumeDocument(resume: ResumeData): Document {
     }
   }
 
-  const s = resume.skillsAndInterests;
-  const additional: [string, string[]][] = (
-    [
-      ["Certifications", s?.certifications],
-      ["Languages", s?.languages],
-      ["Software", s?.software],
-      ["Volunteer", s?.volunteer],
-      ["Interests", s?.interests],
-    ] as [string, string[] | undefined][]
-  ).filter((entry): entry is [string, string[]] => !!entry[1] && entry[1].length > 0);
-
-  if (additional.length > 0) {
-    children.push(sectionHeading("Additional"));
-    children.push(
-      ...bullets(
-        additional.map(([label, arr]) => `${label}: ${arr.join(", ")}`),
-        false
-      )
-    );
-  }
+  children.push(sectionHeading("Additional"));
+  children.push(...bullets(additionalBulletLines(resume.skillsAndInterests), false));
 
   return new Document({
     sections: [

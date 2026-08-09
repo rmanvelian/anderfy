@@ -1,4 +1,4 @@
-import { ADDITIONAL_TRIM_ORDER } from "@/lib/additionalSection";
+import { additionalBulletLines } from "@/lib/additionalSection";
 import { trimOneBalancedExperienceBullet } from "@/lib/experienceBullets";
 import type { ResumeData, SkillsAndInterests } from "@/types/resume";
 
@@ -10,14 +10,6 @@ export const CHARS_PER_BULLET_LINE = 95;
 // without routinely over-trimming into large bottom whitespace.
 const AVAILABLE_LINES_ONE_PAGE = 52;
 
-const ADDITIONAL_LABELS: Record<(typeof ADDITIONAL_TRIM_ORDER)[number], string> = {
-  certifications: "Certifications",
-  languages: "Languages",
-  software: "Software",
-  volunteer: "Volunteer",
-  interests: "Interests",
-};
-
 function bulletLines(bullets?: string[]): number {
   if (!bullets) return 0;
   return bullets
@@ -26,17 +18,11 @@ function bulletLines(bullets?: string[]): number {
 }
 
 function additionalContentLines(skills: SkillsAndInterests | undefined): number {
-  if (!skills) return 0;
-  let rows = 0;
-  let lines = 0;
-  for (const key of ADDITIONAL_TRIM_ORDER) {
-    const values = (skills[key] ?? []).map((v) => v.trim()).filter(Boolean);
-    if (values.length === 0) continue;
-    rows += 1;
-    const text = `${ADDITIONAL_LABELS[key]}: ${values.join(", ")}`;
-    lines += Math.max(1, Math.ceil(text.length / CHARS_PER_BULLET_LINE));
-  }
-  if (rows === 0) return 0;
+  // Always five Anderson Additional rows (placeholders when empty).
+  const lines = additionalBulletLines(skills).reduce(
+    (sum, text) => sum + Math.max(1, Math.ceil(text.length / CHARS_PER_BULLET_LINE)),
+    0
+  );
   return 2 + lines; // section heading + gap + rows
 }
 

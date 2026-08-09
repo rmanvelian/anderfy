@@ -120,6 +120,7 @@ function assertAdditional(resume, label) {
 }
 
 // Schools with no honors text still get the three Anderson labeled bullets.
+// Empty Additional categories get "(None specified in upload)".
 {
   const sparse = `
 Pat Student
@@ -140,6 +141,14 @@ Did analysis
   assert.equal(bullets[0], "Honors: (None specified in upload)");
   assert.equal(bullets[1], "Leadership: (None specified in upload)");
   assert.equal(bullets[2], "Membership: (None specified in upload)");
+  const s = resume.skillsAndInterests;
+  for (const key of ["certifications", "languages", "software", "volunteer", "interests"]) {
+    assert.deepEqual(
+      s[key],
+      ["(None specified in upload)"],
+      `${key} should be placeholder when upload has none`
+    );
+  }
 }
 
 {

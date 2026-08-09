@@ -1,4 +1,7 @@
-import { restoreAdditionalFromSource } from "@/lib/additionalSection";
+import {
+  ensureAndersonAdditionalRows,
+  restoreAdditionalFromSource,
+} from "@/lib/additionalSection";
 import {
   ensureAndersonEducationBullets,
   restoreEmptyEducationBullets,
@@ -14,18 +17,23 @@ import type { ResumeData } from "@/types/resume";
 /**
  * Post-process a tailored/edited resume against the candidate's source:
  * recover mis-filed Education/Additional rows, ensure every school has
- * Honors/Leadership/Membership, keep the full Additional section, and trim
- * experience only when needed for one page.
+ * Honors/Leadership/Membership, keep all Additional category rows (with
+ * "(None specified in upload)" when empty), and trim experience only when
+ * needed for one page.
  */
 export function finalizeResumeAgainstSource(
   tailored: ResumeData,
   source: ResumeData
 ): ResumeData {
-  const recoveredSource = ensureAndersonEducationBullets(
-    recoverEducationLabeledBullets(recoverAdditionalFromExperience(source))
+  const recoveredSource = ensureAndersonAdditionalRows(
+    ensureAndersonEducationBullets(
+      recoverEducationLabeledBullets(recoverAdditionalFromExperience(source))
+    )
   );
-  const recoveredTailored = ensureAndersonEducationBullets(
-    recoverEducationLabeledBullets(recoverAdditionalFromExperience(tailored))
+  const recoveredTailored = ensureAndersonAdditionalRows(
+    ensureAndersonEducationBullets(
+      recoverEducationLabeledBullets(recoverAdditionalFromExperience(tailored))
+    )
   );
 
   let next = normalizeExperienceBullets(recoveredTailored, recoveredSource);
@@ -36,5 +44,6 @@ export function finalizeResumeAgainstSource(
   next = restoreEmptyEducationBullets(next, recoveredSource);
   // Always re-apply Additional after fit — page-fit must not leave it empty.
   next = restoreAdditionalFromSource(next, recoveredSource);
-  return ensureAndersonEducationBullets(next);
+  next = ensureAndersonEducationBullets(next);
+  return ensureAndersonAdditionalRows(next);
 }

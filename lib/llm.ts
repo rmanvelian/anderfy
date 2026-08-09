@@ -205,7 +205,7 @@ Output JSON of this exact shape:
 
 Rules:
 - List ids in your desired display order (most relevant to this job posting first). You do not need to include every entry — any you omit will automatically be kept, unchanged, in their original position, so only include an entry if you're reordering it and/or rewriting its bullets.
-- Every value in "skillsAndInterests" must be copied verbatim (exact spelling) from the candidate's original skillsAndInterests. You may reorder items for relevance, but keep ALL of them — do not omit certifications, languages, software, volunteer, or interests the candidate already listed.
+- Every value in "skillsAndInterests" must be copied verbatim (exact spelling) from the candidate's original skillsAndInterests. You may reorder items for relevance, but keep ALL of them — do not omit certifications, languages, software, volunteer, or interests the candidate already listed. If a category has no items in the source, use ["(None specified in upload)"] for that array.
 - For every education entry, always output Honors:, Leadership:, and Membership: bullets (in that order). Keep the candidate's values; if a label is missing in the source, use "(None specified in upload)". Do not drop these three bullets.
 - Keep each bullet no longer than roughly two lines (about ${MAX_BULLET_CHARS} characters) when rendered on the resume — ideally one line — starting with a strong past-tense action verb, echoing job-posting language only where it truthfully matches something the candidate already did.
 - Fill the one-page Anderson layout: prefer keeping education labeled bullets and the full Additional section; trim only by slightly shortening experience bullets when necessary.

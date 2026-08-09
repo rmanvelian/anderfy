@@ -1,10 +1,11 @@
+import { isNoneSpecifiedInUpload, NONE_SPECIFIED_IN_UPLOAD } from "@/lib/uploadNone";
 import type { EducationEntry, ResumeData } from "@/types/resume";
 
 /** Anderson education rows that must appear on every school entry. */
 export const ANDERSON_EDU_LABELS = ["Honors", "Leadership", "Membership"] as const;
 
 /** Shown when the upload has no value for an Anderson education label. */
-export const EDUCATION_NONE_VALUE = "(None specified in upload)";
+export const EDUCATION_NONE_VALUE = NONE_SPECIFIED_IN_UPLOAD;
 
 export type AndersonEduLabel = (typeof ANDERSON_EDU_LABELS)[number];
 
@@ -29,9 +30,7 @@ function isAndersonEduLabel(bullet: string): boolean {
 /** Template placeholders like "………more………" or empty values → treat as missing. */
 export function isEducationPlaceholderValue(value: string): boolean {
   const trimmed = value.trim();
-  if (!trimmed) return true;
-  if (/^none$/i.test(trimmed)) return true;
-  if (/^\(?none specified in upload\)?$/i.test(trimmed)) return true;
+  if (isNoneSpecifiedInUpload(trimmed)) return true;
   const dotCount = (trimmed.match(/[.…·•]/g) || []).length;
   const moreCount = (trimmed.match(/\bmore\b/gi) || []).length;
   // Anderson DOCX template filler is mostly dots / the word "more".

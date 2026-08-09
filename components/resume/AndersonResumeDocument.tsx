@@ -1,4 +1,5 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { additionalBulletLines } from "@/lib/additionalSection";
 import { splitBulletLabel } from "@/lib/bulletLabel";
 import type { ResumeData } from "@/types/resume";
 
@@ -129,14 +130,7 @@ function contactParts(resume: ResumeData): string[] {
 }
 
 export function AndersonResumeDocument({ resume }: { resume: ResumeData }) {
-  const s = resume.skillsAndInterests;
-  const additional: { label: string; values: string[] }[] = [
-    { label: "Certifications", values: s?.certifications ?? [] },
-    { label: "Languages", values: s?.languages ?? [] },
-    { label: "Software", values: s?.software ?? [] },
-    { label: "Volunteer", values: s?.volunteer ?? [] },
-    { label: "Interests", values: s?.interests ?? [] },
-  ].filter((row) => row.values.length > 0);
+  const additionalLines = additionalBulletLines(resume.skillsAndInterests);
 
   return (
     <Document
@@ -193,12 +187,10 @@ export function AndersonResumeDocument({ resume }: { resume: ResumeData }) {
           </View>
         )}
 
-        {additional.length > 0 && (
-          <View style={styles.section}>
-            <SectionHeading>Additional</SectionHeading>
-            <Bullets items={additional.map((row) => `${row.label}: ${row.values.join(", ")}`)} />
-          </View>
-        )}
+        <View style={styles.section}>
+          <SectionHeading>Additional</SectionHeading>
+          <Bullets items={additionalLines} />
+        </View>
       </Page>
     </Document>
   );

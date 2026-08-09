@@ -1,3 +1,4 @@
+import { ensureAndersonAdditionalRows } from "@/lib/additionalSection";
 import { ensureAndersonEducationBullets } from "@/lib/educationBullets";
 import { newId } from "@/lib/id";
 import type {
@@ -717,8 +718,11 @@ export function extractResumeHeuristically(rawText: string): ResumeData {
     }
   }
 
-  // Anderson format: every school always shows Honors / Leadership / Membership.
-  return ensureAndersonEducationBullets({ contact, education, experience, skillsAndInterests });
+  // Anderson format: every school always shows Honors / Leadership / Membership,
+  // and Additional always shows all five category rows.
+  return ensureAndersonAdditionalRows(
+    ensureAndersonEducationBullets({ contact, education, experience, skillsAndInterests })
+  );
 }
 
 // --- Local (non-AI) tailoring: re-prioritize the user's real bullets/skills by their

@@ -1,3 +1,4 @@
+import { isNoneSpecifiedInUpload, NONE_SPECIFIED_IN_UPLOAD } from "@/lib/uploadNone";
 import type { ResumeData, SkillsAndInterests } from "@/types/resume";
 
 export const ADDITIONAL_KEYS = [
@@ -8,15 +9,30 @@ export const ADDITIONAL_KEYS = [
   "interests",
 ] as const;
 
+export const ADDITIONAL_LABELS: Record<(typeof ADDITIONAL_KEYS)[number], string> = {
+  certifications: "Certifications",
+  languages: "Languages",
+  software: "Software",
+  volunteer: "Volunteer",
+  interests: "Interests",
+};
+
+/** Shown when the upload has no items for an Additional category. */
+export const ADDITIONAL_NONE_VALUE = NONE_SPECIFIED_IN_UPLOAD;
+
 type AdditionalKey = (typeof ADDITIONAL_KEYS)[number];
 
 function nonEmpty(values: string[] | undefined): string[] {
   return (values ?? []).map((v) => v.trim()).filter(Boolean);
 }
 
+function realItems(values: string[] | undefined): string[] {
+  return nonEmpty(values).filter((v) => !isNoneSpecifiedInUpload(v));
+}
+
 function hasAnyAdditional(skills: SkillsAndInterests | undefined): boolean {
   if (!skills) return false;
-  return ADDITIONAL_KEYS.some((key) => nonEmpty(skills[key]).length > 0);
+  return ADDITIONAL_KEYS.some((key) => realItems(skills[key]).length > 0);
 }
 
 /**
@@ -27,7 +43,7 @@ export function reorderKeepAllAdditional(
   source: string[] | undefined,
   proposed: string[] | undefined
 ): string[] {
-  const originalList = nonEmpty(source);
+  const originalList = realItems(source);
   if (originalList.length === 0) return [];
   if (!proposed || proposed.length === 0) return originalList;
 
@@ -36,6 +52,7 @@ export function reorderKeepAllAdditional(
   const used = new Set<string>();
   for (const value of proposed) {
     const lower = value.trim().toLowerCase();
+    if (isNoneSpecifiedInUpload(value)) continue;
     const match = originalByLower.get(lower);
     if (match && !used.has(lower)) {
       ordered.push(match);
@@ -62,48 +79,69 @@ export function restoreAdditionalFromSource(
     !hasAnyAdditional(source.skillsAndInterests) &&
     !hasAnyAdditional(tailored.skillsAndInterests)
   ) {
-    return tailored;
+    // Still ensure placeholder rows so Additional always renders.
+    return ensureAndersonAdditionalRows(tailored);
   }
 
   const next: SkillsAndInterests = { ...tailored.skillsAndInterests };
   let changed = false;
 
   for (const key of ADDITIONAL_KEYS) {
-    // Prefer keeping everything from both sides (source is the floor).
     const unionFloor = [
-      ...nonEmpty(source.skillsAndInterests[key]),
-      ...nonEmpty(next[key]),
+      ...realItems(source.skillsAndInterests[key]),
+      ...realItems(next[key]),
     ];
     const restored = reorderKeepAllAdditional(unionFloor, [
-      ...nonEmpty(next[key]),
-      ...nonEmpty(source.skillsAndInterests[key]),
+      ...realItems(next[key]),
+      ...realItems(source.skillsAndInterests[key]),
     ]);
-    const current = nonEmpty(next[key]);
+    const current = realItems(next[key]);
     if (JSON.stringify(restored) !== JSON.stringify(current)) {
       next[key] = restored;
       changed = true;
     }
   }
 
-  return changed ? { ...tailored, skillsAndInterests: next } : tailored;
+  const merged = changed ? { ...tailored, skillsAndInterests: next } : tailored;
+  return ensureAndersonAdditionalRows(merged);
 }
 
-/** True when every source Additional category that had items still has ≥1. */
+/**
+ * Every Additional category always has at least one value. Uses upload items
+ * when present; otherwise "(None specified in upload)".
+ */
+export function ensureAndersonAdditionalRows(resume: ResumeData): ResumeData {
+  const next: SkillsAndInterests = { ...resume.skillsAndInterests };
+  let changed = false;
+
+  for (const key of ADDITIONAL_KEYS) {
+    const values = realItems(next[key]);
+    const ensured = values.length > 0 ? values : [ADDITIONAL_NONE_VALUE];
+    if (JSON.stringify(ensured) !== JSON.stringify(next[key] ?? [])) {
+      next[key] = ensured;
+      changed = true;
+    }
+  }
+
+  return changed ? { ...resume, skillsAndInterests: next } : resume;
+}
+
+/** True when every source Additional category that had items still has ≥1 real item. */
 export function additionalPreservedFromSource(
   tailored: ResumeData,
   source: ResumeData
 ): boolean {
   for (const key of ADDITIONAL_KEYS) {
-    const sourceValues = nonEmpty(source.skillsAndInterests[key]);
+    const sourceValues = realItems(source.skillsAndInterests[key]);
     if (sourceValues.length === 0) continue;
-    if (nonEmpty(tailored.skillsAndInterests[key]).length < sourceValues.length) return false;
+    if (realItems(tailored.skillsAndInterests[key]).length < sourceValues.length) return false;
   }
   return true;
 }
 
 export function countAdditionalItems(skills: SkillsAndInterests | undefined): number {
   if (!skills) return 0;
-  return ADDITIONAL_KEYS.reduce((sum, key) => sum + nonEmpty(skills[key]).length, 0);
+  return ADDITIONAL_KEYS.reduce((sum, key) => sum + realItems(skills[key]).length, 0);
 }
 
 /** Softest → hardest when shortening Additional lists during page-fit. */
@@ -114,3 +152,19 @@ export const ADDITIONAL_TRIM_ORDER: AdditionalKey[] = [
   "languages",
   "certifications",
 ];
+
+/** Build the five Anderson Additional bullet strings for render/export. */
+export function additionalBulletLines(skills: SkillsAndInterests | undefined): string[] {
+  const ensured = ensureAndersonAdditionalRows({
+    contact: { name: "" },
+    education: [],
+    experience: [],
+    skillsAndInterests: skills ?? {},
+  }).skillsAndInterests;
+
+  return ADDITIONAL_KEYS.map((key) => {
+    const values = nonEmpty(ensured[key]);
+    const display = values.length > 0 ? values.join(", ") : ADDITIONAL_NONE_VALUE;
+    return `${ADDITIONAL_LABELS[key]}: ${display}`;
+  });
+}
