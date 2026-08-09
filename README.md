@@ -74,8 +74,8 @@ That script:
 3. Writes the site into `out/` (including `index.html` and a `404.html` fallback)
 4. Restores `app/api` for normal local/server development
 
-A GitHub Actions workflow (`.github/workflows/deploy-github-pages.yml`) runs this on
-pushes to `main` and deploys the `out/` folder to GitHub Pages.
+A GitHub Actions workflow (`.github/workflows/static.yml`) runs this on pushes to
+`main` and deploys the `out/` folder to GitHub Pages (not the repo root / README).
 
 **Enable Pages in the repo:** Settings → Pages → Source: **GitHub Actions**.
 
