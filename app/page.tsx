@@ -69,7 +69,7 @@ export default function Home() {
       <section className="bg-muted">
         <div className="mx-auto w-full max-w-5xl px-4 py-16 sm:px-6">
           <div className="mb-8 max-w-2xl">
-            <h2 className="text-2xl text-ucla-blue sm:text-3xl">The Anderfy Advantage.</h2>
+            <h2 className="text-2xl text-ucla-blue sm:text-3xl">The Anderfy Advantage</h2>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((feature) => (
@@ -90,9 +90,9 @@ export default function Home() {
         aria-label="Build your Anderson resume"
         className="scroll-mt-6 border-t bg-background"
       >
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-12 sm:px-6">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-16 sm:px-6">
           <div className="max-w-2xl">
-            <h2 className="text-2xl text-ucla-blue sm:text-3xl">Anderfy your resume</h2>
+            <h2 className="text-2xl text-ucla-blue sm:text-3xl">Anderfy Your Resume</h2>
             <p className="mt-2 text-muted-foreground">
               Upload or paste your background, add a job posting, then review and export.
             </p>
