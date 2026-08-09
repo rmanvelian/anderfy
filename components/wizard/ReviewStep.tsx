@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { Download, FileType, Loader2, Sparkles } from "lucide-react";
+import { Download, FileType, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageFitIndicator } from "@/components/resume/PageFitIndicator";
 import { ResumeEditor } from "@/components/resume/ResumeEditor";
 import { downloadResumeExport } from "@/lib/clientExport";
+import { tailorResumeClient } from "@/lib/clientResume";
 import { estimatePageFit, fitResumeToOnePage } from "@/lib/pageFit";
 import type { JobPosting, ResumeData } from "@/types/resume";
 
