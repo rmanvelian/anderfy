@@ -50,23 +50,34 @@ export function reorderKeepAllAdditional(
 }
 
 /**
- * Restore any Additional items missing vs the source resume (not only fully
- * emptied categories). Preserves tailored order for items that remain.
+ * Union Additional items from source and tailored so the section cannot
+ * disappear when either side still has content. Preserves tailored order first,
+ * then appends any missing source items.
  */
 export function restoreAdditionalFromSource(
   tailored: ResumeData,
   source: ResumeData
 ): ResumeData {
-  if (!hasAnyAdditional(source.skillsAndInterests)) return tailored;
+  if (
+    !hasAnyAdditional(source.skillsAndInterests) &&
+    !hasAnyAdditional(tailored.skillsAndInterests)
+  ) {
+    return tailored;
+  }
 
   const next: SkillsAndInterests = { ...tailored.skillsAndInterests };
   let changed = false;
 
   for (const key of ADDITIONAL_KEYS) {
-    const restored = reorderKeepAllAdditional(
-      source.skillsAndInterests[key],
-      next[key]
-    );
+    // Prefer keeping everything from both sides (source is the floor).
+    const unionFloor = [
+      ...nonEmpty(source.skillsAndInterests[key]),
+      ...nonEmpty(next[key]),
+    ];
+    const restored = reorderKeepAllAdditional(unionFloor, [
+      ...nonEmpty(next[key]),
+      ...nonEmpty(source.skillsAndInterests[key]),
+    ]);
     const current = nonEmpty(next[key]);
     if (JSON.stringify(restored) !== JSON.stringify(current)) {
       next[key] = restored;

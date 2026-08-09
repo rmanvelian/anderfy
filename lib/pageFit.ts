@@ -97,21 +97,6 @@ function cloneResume(resume: ResumeData): ResumeData {
   };
 }
 
-/**
- * Shorten Additional lists without removing a category row. Only useful when
- * the estimate counts wrapped Additional content (trimming items frees lines).
- */
-function trimAdditionalExtras(skills: SkillsAndInterests): boolean {
-  for (const key of ADDITIONAL_TRIM_ORDER) {
-    const list = skills[key];
-    if (list && list.length > 1) {
-      list.pop();
-      return true;
-    }
-  }
-  return false;
-}
-
 function trimOneEducationBullet(resume: ResumeData): boolean {
   // Never remove required Anderson Honors/Leadership/Membership rows. Only trim
   // other education bullets (e.g. extra freeform lines); GPA is secondary.
@@ -132,8 +117,8 @@ function trimOneEducationBullet(resume: ResumeData): boolean {
 
 /**
  * Trim until the resume is estimated to fit on one page. Prefer trimming
- * experience extras first so education Honors/Leadership/Membership and full
- * Additional lists are kept whenever the page still has room.
+ * experience extras first. Never remove education Honors/Leadership/Membership
+ * or any Additional items — Anderson resumes should keep the Additional section.
  */
 export function fitResumeToOnePage(resume: ResumeData): ResumeData {
   const next = cloneResume(resume);
@@ -143,12 +128,11 @@ export function fitResumeToOnePage(resume: ResumeData): ResumeData {
     // 1) Experience extras (balanced, never empty a role)
     if (trimOneBalancedExperienceBullet(next.experience)) continue;
 
-    // 2) Education extras (never empty a school that still has bullets)
+    // 2) Education extras only (GPA / freeform) — never Anderson labeled rows
     if (trimOneEducationBullet(next)) continue;
 
-    // 3) Additional extras last — only when wrapped rows are still over budget
-    if (trimAdditionalExtras(next.skillsAndInterests)) continue;
-
+    // Do not trim Additional — dropping it creates a missing section and
+    // unused whitespace lower on the page is preferable.
     break;
   }
 

@@ -591,23 +591,36 @@ function emptySkills(): SkillsAndInterests {
   };
 }
 
+function dedupeStrings(values: string[] | undefined): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const value of values ?? []) {
+    const trimmed = value.trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(trimmed);
+  }
+  return out;
+}
+
 function mergeSkills(a: SkillsAndInterests, b: SkillsAndInterests): SkillsAndInterests {
   return {
-    certifications: [...(a.certifications ?? []), ...(b.certifications ?? [])],
-    languages: [...(a.languages ?? []), ...(b.languages ?? [])],
-    software: [...(a.software ?? []), ...(b.software ?? [])],
-    volunteer: [...(a.volunteer ?? []), ...(b.volunteer ?? [])],
-    interests: [...(a.interests ?? []), ...(b.interests ?? [])],
+    certifications: dedupeStrings([...(a.certifications ?? []), ...(b.certifications ?? [])]),
+    languages: dedupeStrings([...(a.languages ?? []), ...(b.languages ?? [])]),
+    software: dedupeStrings([...(a.software ?? []), ...(b.software ?? [])]),
+    volunteer: dedupeStrings([...(a.volunteer ?? []), ...(b.volunteer ?? [])]),
+    interests: dedupeStrings([...(a.interests ?? []), ...(b.interests ?? [])]),
   };
 }
 
 /**
- * If Additional is empty but Experience contains mis-filed skill rows
- * (Certifications:/Languages:/…), move them into skillsAndInterests. Safe to
- * run on already-parsed drafts.
+ * Move mis-filed Additional rows (Certifications:/Languages:/…) out of
+ * Experience into skillsAndInterests. Always peels labeled skill bullets from
+ * experience entries; merges into any skills already present.
  */
 export function recoverAdditionalFromExperience(resume: ResumeData): ResumeData {
-  if (skillsItemCount(resume.skillsAndInterests) > 0) return resume;
   const { experience, skills } = salvageSkillsFromExperience(resume.experience);
   if (skillsItemCount(skills) === 0) return resume;
   return {

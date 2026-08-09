@@ -81,8 +81,8 @@ function bulletParagraph(text: string, isLastInEntry: boolean): Paragraph {
     runs.push(new TextRun({ text, font: FONT, size: BODY_SIZE }));
   }
   return new Paragraph({
-    // Base indent (260) plus ~4 spaces at 11pt (~110 twips/space).
-    indent: { left: 700, hanging: 260 },
+    // Base indent (260) plus ~2 spaces at 11pt (~110 twips/space).
+    indent: { left: 480, hanging: 260 },
     spacing: { after: isLastInEntry ? GAP_TWIPS : 0 },
     children: runs,
   });

@@ -75,8 +75,8 @@ const styles = StyleSheet.create({
   bulletRow: {
     flexDirection: "row",
     marginTop: 2,
-    // Base indent plus ~4 spaces at 11pt Times (~5.5pt/space).
-    paddingLeft: 26,
+    // Base indent plus ~2 spaces at 11pt Times (~5.5pt/space).
+    paddingLeft: 15,
   },
   bulletMark: {
     width: 12,

@@ -14,8 +14,8 @@ import type { ResumeData } from "@/types/resume";
 /**
  * Post-process a tailored/edited resume against the candidate's source:
  * recover mis-filed Education/Additional rows, ensure every school has
- * Honors/Leadership/Membership, restore Additional items, and trim for one
- * page only when necessary.
+ * Honors/Leadership/Membership, keep the full Additional section, and trim
+ * experience only when needed for one page.
  */
 export function finalizeResumeAgainstSource(
   tailored: ResumeData,
@@ -34,10 +34,7 @@ export function finalizeResumeAgainstSource(
   next = fitResumeToOnePage(next);
   next = normalizeExperienceBullets(next, recoveredSource);
   next = restoreEmptyEducationBullets(next, recoveredSource);
-  next = restoreAdditionalFromSource(next, recoveredSource);
-  next = fitResumeToOnePage(next);
-  next = normalizeExperienceBullets(next, recoveredSource);
-  next = restoreEmptyEducationBullets(next, recoveredSource);
+  // Always re-apply Additional after fit — page-fit must not leave it empty.
   next = restoreAdditionalFromSource(next, recoveredSource);
   return ensureAndersonEducationBullets(next);
 }

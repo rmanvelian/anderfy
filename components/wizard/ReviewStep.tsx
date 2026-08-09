@@ -11,7 +11,6 @@ import { ResumeEditor } from "@/components/resume/ResumeEditor";
 import { downloadResumeExport } from "@/lib/clientExport";
 import { tailorResumeClient } from "@/lib/clientResume";
 import { finalizeResumeAgainstSource } from "@/lib/finalizeResume";
-import { fitResumeToOnePage } from "@/lib/pageFit";
 import { PREVIEW_LETTERBOX_BG } from "@/lib/previewTheme";
 import type { JobPosting, ResumeData } from "@/types/resume";
 
@@ -84,7 +83,10 @@ export function ReviewStep({
     setExporting(kind);
     setError(null);
     try {
-      await downloadResumeExport(kind, fitResumeToOnePage(resume));
+      await downloadResumeExport(
+        kind,
+        finalizeResumeAgainstSource(resume, sourceResume)
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Export failed.");
     } finally {
