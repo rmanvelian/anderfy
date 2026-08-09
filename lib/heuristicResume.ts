@@ -454,20 +454,37 @@ function score(text: string, keywords: Keyword[]): number {
   return total;
 }
 
-function reorderBullets(bullets: string[] | undefined, keywords: Keyword[]): string[] {
+function reorderBullets(
+  bullets: string[] | undefined,
+  keywords: Keyword[],
+  regenerate = false
+): string[] {
   if (!bullets || bullets.length <= 1) return bullets ?? [];
-  return bullets
+  const ordered = bullets
     .map((text, index) => ({ text, index, s: score(text, keywords) }))
-    .sort((a, b) => b.s - a.s || a.index - b.index)
+    .sort((a, b) => b.s - a.s || (regenerate ? b.index - a.index : a.index - b.index))
     .map((x) => x.text);
+  if (!regenerate || ordered.length < 2) return ordered;
+  // Rotate so a regenerate pass surfaces a different lead bullet while keeping
+  // job-keyword relevance scoring.
+  return [...ordered.slice(1), ordered[0]];
 }
 
-function reorderByRelevance(items: string[] | undefined, keywords: Keyword[]): string[] {
+function reorderByRelevance(
+  items: string[] | undefined,
+  keywords: Keyword[],
+  regenerate = false
+): string[] {
   if (!items || items.length <= 1) return items ?? [];
-  return [...items].sort((a, b) => score(b, keywords) - score(a, keywords));
+  const ordered = [...items].sort((a, b) => score(b, keywords) - score(a, keywords));
+  return regenerate ? [...ordered].reverse() : ordered;
 }
 
-export function tailorResumeHeuristically(resume: ResumeData, jobPosting: JobPosting): ResumeData {
+export function tailorResumeHeuristically(
+  resume: ResumeData,
+  jobPosting: JobPosting,
+  options: { regenerate?: boolean } = {}
+): ResumeData {
   // Deliberately excludes the employer's own name: it's noise for scoring bullet/skill
   // relevance, not a signal of what the role actually needs.
   const companyWords = new Set(
@@ -479,16 +496,23 @@ export function tailorResumeHeuristically(resume: ResumeData, jobPosting: JobPos
       .filter(Boolean)
   );
   const keywords = extractKeywords(`${jobPosting.title ?? ""} ${jobPosting.rawText}`, companyWords);
+  const regenerate = !!options.regenerate;
 
   return {
     contact: resume.contact,
-    education: resume.education.map((ed) => ({ ...ed, bullets: reorderBullets(ed.bullets, keywords) })),
-    experience: resume.experience.map((ex) => ({ ...ex, bullets: reorderBullets(ex.bullets, keywords) })),
+    education: resume.education.map((ed) => ({
+      ...ed,
+      bullets: reorderBullets(ed.bullets, keywords, regenerate),
+    })),
+    experience: resume.experience.map((ex) => ({
+      ...ex,
+      bullets: reorderBullets(ex.bullets, keywords, regenerate),
+    })),
     skillsAndInterests: {
-      certifications: reorderByRelevance(resume.skillsAndInterests?.certifications, keywords),
+      certifications: reorderByRelevance(resume.skillsAndInterests?.certifications, keywords, regenerate),
       languages: resume.skillsAndInterests?.languages ?? [],
-      software: reorderByRelevance(resume.skillsAndInterests?.software, keywords),
-      volunteer: reorderByRelevance(resume.skillsAndInterests?.volunteer, keywords),
+      software: reorderByRelevance(resume.skillsAndInterests?.software, keywords, regenerate),
+      volunteer: reorderByRelevance(resume.skillsAndInterests?.volunteer, keywords, regenerate),
       interests: resume.skillsAndInterests?.interests ?? [],
     },
   };

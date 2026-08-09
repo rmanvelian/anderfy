@@ -5,7 +5,10 @@ import { newId } from "@/lib/id";
 import { chatStructured, isLlmConfigured } from "@/lib/llmClient";
 import { fitResumeToOnePage } from "@/lib/pageFit";
 import { mergeOrderedEntries, sanitizeStringList } from "@/lib/tailorMerge";
+import type { TailorOptions } from "@/lib/tailorOptions";
 import type { JobPosting, ResumeData } from "@/types/resume";
+
+export type { TailorOptions } from "@/lib/tailorOptions";
 
 export function isMockMode(): boolean {
   return process.env.MOCK_LLM === "1" || !isLlmConfigured();
@@ -141,13 +144,35 @@ Rules:
 - Keep each bullet no longer than roughly two lines (about ${MAX_BULLET_CHARS} characters) when rendered on the resume — ideally one line — starting with a strong past-tense action verb, echoing job-posting language only where it truthfully matches something the candidate already did.
 - Aim for at most 3-4 bullets for the most relevant/recent entries and 2-3 for others, to help the final resume fit one page.`;
 
+function collectBulletPhrasings(resume: ResumeData | undefined): string[] {
+  if (!resume) return [];
+  return [
+    ...resume.education.flatMap((e) => e.bullets ?? []),
+    ...resume.experience.flatMap((e) => e.bullets ?? []),
+  ]
+    .map((b) => b.trim())
+    .filter(Boolean)
+    .slice(0, 40);
+}
+
 export async function tailorResumeToJob(
   resume: ResumeData,
-  jobPosting: JobPosting
+  jobPosting: JobPosting,
+  options: TailorOptions = {}
 ): Promise<ResumeData> {
   if (isMockMode()) {
-    return fitResumeToOnePage(tailorResumeHeuristically(resume, jobPosting));
+    return fitResumeToOnePage(tailorResumeHeuristically(resume, jobPosting, options));
   }
+
+  const previousBullets = options.regenerate ? collectBulletPhrasings(options.previousResume) : [];
+  const regenerateBlock =
+    options.regenerate && previousBullets.length > 0
+      ? `\n\nREGENERATION REQUEST: The candidate rejected a prior draft. Produce a meaningfully different wording pass — different opening verbs, sentence structures, and emphasis — while still synthesizing the job posting with the candidate's real experience. Do NOT reuse or lightly edit these prior phrasings:\n${previousBullets
+          .map((b) => `- ${b}`)
+          .join("\n")}`
+      : options.regenerate
+        ? `\n\nREGENERATION REQUEST: The candidate wants a fresh draft. Use different action verbs, structures, and emphasis than a typical first pass, while still tightly synthesizing the job posting with their real experience. Do not invent facts.`
+        : "";
 
   const userPrompt = `Candidate resume JSON (source of truth — do not add facts beyond what's here):\n${JSON.stringify(
     resume
@@ -156,9 +181,11 @@ export async function tailorResumeToJob(
   } (context only, not a source of facts about the candidate):\n"""\n${jobPosting.rawText.slice(
     0,
     12000
-  )}\n"""`;
+  )}\n"""${regenerateBlock}`;
 
-  const parsed = await chatStructured(TAILOR_SYSTEM_PROMPT, userPrompt, tailorResponseSchema);
+  const parsed = await chatStructured(TAILOR_SYSTEM_PROMPT, userPrompt, tailorResponseSchema, {
+    temperature: options.regenerate ? 0.85 : 0.4,
+  });
 
   return fitResumeToOnePage({
     contact: resume.contact,

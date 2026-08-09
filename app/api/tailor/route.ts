@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { tailorResumeToJob } from "@/lib/llm";
+import type { TailorOptions } from "@/lib/tailorOptions";
 import type { JobPosting, ResumeData } from "@/types/resume";
 
 export const runtime = "nodejs";
@@ -7,6 +8,7 @@ export const runtime = "nodejs";
 interface TailorRequestBody {
   resume: ResumeData;
   jobPosting: JobPosting;
+  options?: TailorOptions;
 }
 
 export async function POST(request: Request) {
@@ -23,7 +25,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const resume = await tailorResumeToJob(body.resume, body.jobPosting);
+    const resume = await tailorResumeToJob(body.resume, body.jobPosting, body.options);
     return NextResponse.json({ resume });
   } catch (error) {
     console.error("tailor failed", error);

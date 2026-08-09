@@ -18,25 +18,27 @@ const ResumePdfPreview = dynamic(
   { ssr: false, loading: () => <PreviewSkeleton /> }
 );
 
-function PreviewSkeleton() {
+function PreviewSkeleton({ label = "Loading preview…" }: { label?: string }) {
   return (
     <div className="flex aspect-[8.5/11] w-full items-center justify-center rounded-md border bg-muted/30 text-sm text-muted-foreground">
-      Loading preview…
+      {label}
     </div>
   );
 }
 
 export function ReviewStep({
   resume,
+  sourceResume,
   jobPosting,
   onChange,
-  onRetailor,
+  onBack,
   onStartOver,
 }: {
   resume: ResumeData;
+  sourceResume: ResumeData;
   jobPosting: JobPosting;
   onChange: (next: ResumeData) => void;
-  onRetailor: () => void;
+  onBack: () => void;
   onStartOver: () => void;
 }) {
   const [exporting, setExporting] = useState<"pdf" | "docx" | null>(null);
@@ -45,22 +47,26 @@ export function ReviewStep({
 
   // Keep the draft on one page even if the user pastes a lot into the editor.
   useEffect(() => {
+    if (regenerating) return;
     if (estimatePageFit(resume).fitsOnePage) return;
     const fitted = fitResumeToOnePage(resume);
     if (JSON.stringify(fitted) !== JSON.stringify(resume)) {
       onChange(fitted);
     }
-  }, [resume, onChange]);
+  }, [resume, onChange, regenerating]);
 
   const handleGenerateNew = async () => {
     if (!jobPosting.rawText.trim()) {
-      onRetailor();
+      onBack();
       return;
     }
     setRegenerating(true);
     setError(null);
     try {
-      const next = await tailorResumeClient(resume, jobPosting);
+      const next = await tailorResumeClient(sourceResume, jobPosting, {
+        regenerate: true,
+        previousResume: resume,
+      });
       onChange(next);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to generate a new resume.");
@@ -109,6 +115,9 @@ export function ReviewStep({
         </Card>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={onBack} disabled={regenerating}>
+            Back
+          </Button>
           <Button variant="outline" onClick={onStartOver} disabled={regenerating}>
             Start over
           </Button>
@@ -123,18 +132,26 @@ export function ReviewStep({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold">Live preview</h2>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => handleExport("docx")} disabled={exporting !== null}>
+            <Button
+              variant="outline"
+              onClick={() => handleExport("docx")}
+              disabled={exporting !== null || regenerating}
+            >
               {exporting === "docx" ? <Loader2 className="size-4 animate-spin" /> : <FileType className="size-4" />}
               Download DOCX
             </Button>
-            <Button onClick={() => handleExport("pdf")} disabled={exporting !== null}>
+            <Button onClick={() => handleExport("pdf")} disabled={exporting !== null || regenerating}>
               {exporting === "pdf" ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
               Download PDF
             </Button>
           </div>
         </div>
         <div className="mx-auto w-full max-w-3xl overflow-hidden rounded-md border bg-white aspect-[8.5/11]">
-          <ResumePdfPreview resume={resume} />
+          {regenerating ? (
+            <PreviewSkeleton label="Generating a new resume…" />
+          ) : (
+            <ResumePdfPreview resume={resume} />
+          )}
         </div>
       </div>
     </div>

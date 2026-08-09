@@ -61,18 +61,21 @@ function getOpenAIClient(): OpenAI {
 export async function chatStructured<T>(
   system: string,
   user: string,
-  schema: z.ZodType<T>
+  schema: z.ZodType<T>,
+  options?: { temperature?: number }
 ): Promise<T> {
   const provider = resolveProvider();
   if (!provider) {
     throw new Error("No LLM provider configured (set ANTHROPIC_API_KEY or OPENAI_API_KEY).");
   }
+  const temperature = options?.temperature ?? 0.4;
 
   if (provider === "anthropic") {
     const client = getAnthropicClient();
     const message = await client.messages.parse({
       model: ANTHROPIC_MODEL,
       max_tokens: 8000,
+      temperature,
       system,
       messages: [{ role: "user", content: user }],
       output_config: {
@@ -94,7 +97,7 @@ export async function chatStructured<T>(
   const client = getOpenAIClient();
   const completion = await client.chat.completions.create({
     model: OPENAI_MODEL,
-    temperature: 0.4,
+    temperature,
     response_format: { type: "json_object" },
     messages: [
       { role: "system", content: system },

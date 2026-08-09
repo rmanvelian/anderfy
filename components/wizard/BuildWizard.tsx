@@ -11,6 +11,9 @@ import { createEmptyResumeData, type JobPosting, type ResumeData } from "@/types
 export function BuildWizard() {
   const [step, setStep] = useState<WizardStepKey>("source");
   const [resume, setResume] = useState<ResumeData>(createEmptyResumeData());
+  // Untailored source kept so "Generate new resume" can rewrite from the user's
+  // original facts rather than paraphrasing an already-tailored draft.
+  const [sourceResume, setSourceResume] = useState<ResumeData>(createEmptyResumeData());
   const [jobPosting, setJobPosting] = useState<JobPosting>({ rawText: "" });
   const [hydrated, setHydrated] = useState(false);
 
@@ -21,6 +24,7 @@ export function BuildWizard() {
     const draft = loadDraft();
     if (draft) {
       setResume(draft.resume);
+      setSourceResume(draft.sourceResume ?? draft.resume);
       setJobPosting(draft.jobPosting);
       setStep(draft.step);
     }
@@ -30,12 +34,13 @@ export function BuildWizard() {
 
   useEffect(() => {
     if (!hydrated) return;
-    saveDraft({ resume, jobPosting, step });
-  }, [hydrated, resume, jobPosting, step]);
+    saveDraft({ resume, sourceResume, jobPosting, step });
+  }, [hydrated, resume, sourceResume, jobPosting, step]);
 
   const handleStartOver = () => {
     clearDraft();
     setResume(createEmptyResumeData());
+    setSourceResume(createEmptyResumeData());
     setJobPosting({ rawText: "" });
     setStep("source");
   };
@@ -51,6 +56,7 @@ export function BuildWizard() {
       {step === "source" && (
         <SourceStep
           onResumeReady={(nextResume) => {
+            setSourceResume(nextResume);
             setResume(nextResume);
             setStep("job");
           }}
@@ -73,9 +79,13 @@ export function BuildWizard() {
       {step === "review" && (
         <ReviewStep
           resume={resume}
+          sourceResume={sourceResume}
           jobPosting={jobPosting}
           onChange={setResume}
-          onRetailor={() => setStep("job")}
+          onBack={() => {
+            setResume(sourceResume);
+            setStep("job");
+          }}
           onStartOver={handleStartOver}
         />
       )}
