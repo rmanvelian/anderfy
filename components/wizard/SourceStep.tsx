@@ -7,18 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { parseResumeClient } from "@/lib/clientResume";
 import { createEmptyResumeData, type ResumeData } from "@/types/resume";
-
-async function parseResume(input: { file?: File; text?: string }): Promise<ResumeData> {
-  const formData = new FormData();
-  if (input.file) formData.append("file", input.file);
-  if (input.text) formData.append("text", input.text);
-
-  const res = await fetch("/api/parse-resume", { method: "POST", body: formData });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Failed to parse resume.");
-  return data.resume as ResumeData;
-}
 
 export function SourceStep({
   onResumeReady,
@@ -39,7 +29,7 @@ export function SourceStep({
     setLoading(true);
     setError(null);
     try {
-      const resume = await parseResume({ file });
+      const resume = await parseResumeClient({ file });
       onResumeReady(resume);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
@@ -56,7 +46,7 @@ export function SourceStep({
     setLoading(true);
     setError(null);
     try {
-      const resume = await parseResume({ text: pastedText });
+      const resume = await parseResumeClient({ text: pastedText });
       onResumeReady(resume);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");

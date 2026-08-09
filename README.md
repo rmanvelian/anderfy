@@ -59,6 +59,31 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+### Deploying to GitHub Pages
+
+There is no checked-in root `index.html` — Anderfy is a Next.js app. For GitHub Pages,
+build a **static export** that produces `out/index.html`:
+
+```bash
+npm run build:pages
+```
+
+That script:
+1. Temporarily parks `app/api` (Route Handlers can't be statically exported)
+2. Runs `next build` with `output: "export"` and `basePath` set to `/<repo-name>`
+3. Writes the site into `out/` (including `index.html` and a `404.html` fallback)
+4. Restores `app/api` for normal local/server development
+
+A GitHub Actions workflow (`.github/workflows/deploy-github-pages.yml`) runs this on
+pushes to `main` and deploys the `out/` folder to GitHub Pages.
+
+**Enable Pages in the repo:** Settings → Pages → Source: **GitHub Actions**.
+
+**What works on GitHub Pages:** upload/paste → heuristic parse/tailor → edit → PDF/DOCX
+export, all in the browser. Live Claude/OpenAI rewriting and job-URL fetch need a Node
+host (`npm run dev` / `npm start` with API keys) because Pages can't run API routes or
+keep secrets.
+
 ### Choosing an AI provider
 
 `lib/llmClient.ts` auto-detects which provider to use: **Anthropic's Claude Sonnet 5** if
