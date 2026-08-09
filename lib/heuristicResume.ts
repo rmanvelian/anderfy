@@ -454,20 +454,56 @@ function score(text: string, keywords: Keyword[]): number {
   return total;
 }
 
+/** Lightweight verb swaps so heuristic regenerate still changes visible wording. */
+const LEAD_VERB_ALTERNATES: Record<string, string[]> = {
+  led: ["Directed", "Spearheaded", "Championed"],
+  managed: ["Oversaw", "Coordinated", "Ran"],
+  developed: ["Built", "Created", "Designed"],
+  created: ["Developed", "Built", "Established"],
+  built: ["Developed", "Created", "Engineered"],
+  improved: ["Increased", "Strengthened", "Enhanced"],
+  increased: ["Grew", "Expanded", "Improved"],
+  reduced: ["Cut", "Decreased", "Lowered"],
+  analyzed: ["Evaluated", "Assessed", "Examined"],
+  designed: ["Developed", "Architected", "Created"],
+  launched: ["Introduced", "Rolled out", "Initiated"],
+  drove: ["Led", "Pushed", "Advanced"],
+  owned: ["Led", "Managed", "Directed"],
+  collaborated: ["Partnered", "Worked", "Coordinated"],
+  implemented: ["Deployed", "Executed", "Rolled out"],
+  delivered: ["Shipped", "Completed", "Produced"],
+};
+
+function paraphraseBullet(text: string, salt: number): string {
+  const match = text.match(/^([A-Za-z]+)(.*)$/);
+  if (!match) return text;
+  const [, first, rest] = match;
+  const key = first.toLowerCase();
+  const alts = LEAD_VERB_ALTERNATES[key];
+  if (!alts || alts.length === 0) return text;
+  const replacement = alts[Math.abs(salt) % alts.length];
+  if (replacement.toLowerCase() === key) return text;
+  return `${replacement}${rest}`;
+}
+
 function reorderBullets(
   bullets: string[] | undefined,
   keywords: Keyword[],
   regenerate = false
 ): string[] {
-  if (!bullets || bullets.length <= 1) return bullets ?? [];
+  if (!bullets || bullets.length === 0) return bullets ?? [];
+  if (bullets.length === 1) {
+    return regenerate ? [paraphraseBullet(bullets[0], 1)] : bullets;
+  }
   const ordered = bullets
     .map((text, index) => ({ text, index, s: score(text, keywords) }))
     .sort((a, b) => b.s - a.s || (regenerate ? b.index - a.index : a.index - b.index))
     .map((x) => x.text);
-  if (!regenerate || ordered.length < 2) return ordered;
-  // Rotate so a regenerate pass surfaces a different lead bullet while keeping
-  // job-keyword relevance scoring.
-  return [...ordered.slice(1), ordered[0]];
+  if (!regenerate) return ordered;
+  // Rotate lead bullet and paraphrase opening verbs so a regenerate pass is
+  // visibly different even without a live LLM.
+  const rotated = [...ordered.slice(1), ordered[0]];
+  return rotated.map((b, i) => paraphraseBullet(b, i + 1));
 }
 
 function reorderByRelevance(

@@ -155,6 +155,64 @@ function collectBulletPhrasings(resume: ResumeData | undefined): string[] {
     .slice(0, 40);
 }
 
+function normalizeBullet(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+/** Fraction of `next` bullets that already appear (normalized) in `previous`. */
+function phrasingOverlap(previous: ResumeData | undefined, next: ResumeData): number {
+  const prev = new Set(collectBulletPhrasings(previous).map(normalizeBullet));
+  const nxt = collectBulletPhrasings(next);
+  if (nxt.length === 0) return 1;
+  const hits = nxt.filter((b) => prev.has(normalizeBullet(b))).length;
+  return hits / nxt.length;
+}
+
+function buildTailoredResume(
+  resume: ResumeData,
+  parsed: z.infer<typeof tailorResponseSchema>
+): ResumeData {
+  return fitResumeToOnePage({
+    contact: resume.contact,
+    education: mergeOrderedEntries(resume.education, parsed.education),
+    experience: mergeOrderedEntries(resume.experience, parsed.experience),
+    skillsAndInterests: {
+      certifications: sanitizeStringList(
+        resume.skillsAndInterests.certifications,
+        parsed.skillsAndInterests?.certifications
+      ),
+      languages: sanitizeStringList(
+        resume.skillsAndInterests.languages,
+        parsed.skillsAndInterests?.languages
+      ),
+      software: sanitizeStringList(
+        resume.skillsAndInterests.software,
+        parsed.skillsAndInterests?.software
+      ),
+      volunteer: sanitizeStringList(
+        resume.skillsAndInterests.volunteer,
+        parsed.skillsAndInterests?.volunteer
+      ),
+      interests: sanitizeStringList(
+        resume.skillsAndInterests.interests,
+        parsed.skillsAndInterests?.interests
+      ),
+    },
+  });
+}
+
+function regenerateInstructions(previousBullets: string[], attempt: number): string {
+  const intensity =
+    attempt === 0
+      ? "Produce a meaningfully different wording pass — different opening verbs, sentence structures, and which accomplishments you lead with"
+      : "Your previous rewrite was too similar. You MUST change nearly every bullet's opening verb and sentence structure. Prefer alternate true accomplishments from the same roles when available";
+  const banned =
+    previousBullets.length > 0
+      ? `\nDo NOT reuse or lightly edit these prior phrasings:\n${previousBullets.map((b) => `- ${b}`).join("\n")}`
+      : "";
+  return `\n\nREGENERATION REQUEST (attempt ${attempt + 1}): The candidate rejected a prior draft. ${intensity}, while still synthesizing the job posting with the candidate's real experience. Keep every number/fact grounded in the source resume JSON. Do not invent employers, titles, dates, or metrics.${banned}`;
+}
+
 export async function tailorResumeToJob(
   resume: ResumeData,
   jobPosting: JobPosting,
@@ -165,38 +223,36 @@ export async function tailorResumeToJob(
   }
 
   const previousBullets = options.regenerate ? collectBulletPhrasings(options.previousResume) : [];
-  const regenerateBlock =
-    options.regenerate && previousBullets.length > 0
-      ? `\n\nREGENERATION REQUEST: The candidate rejected a prior draft. Produce a meaningfully different wording pass — different opening verbs, sentence structures, and emphasis — while still synthesizing the job posting with the candidate's real experience. Do NOT reuse or lightly edit these prior phrasings:\n${previousBullets
-          .map((b) => `- ${b}`)
-          .join("\n")}`
-      : options.regenerate
-        ? `\n\nREGENERATION REQUEST: The candidate wants a fresh draft. Use different action verbs, structures, and emphasis than a typical first pass, while still tightly synthesizing the job posting with their real experience. Do not invent facts.`
-        : "";
-
-  const userPrompt = `Candidate resume JSON (source of truth — do not add facts beyond what's here):\n${JSON.stringify(
+  const basePrompt = `Candidate resume JSON (source of truth — do not add facts beyond what's here):\n${JSON.stringify(
     resume
   )}\n\nTarget job posting${jobPosting.title ? ` (title: ${jobPosting.title})` : ""}${
     jobPosting.company ? ` at ${jobPosting.company}` : ""
   } (context only, not a source of facts about the candidate):\n"""\n${jobPosting.rawText.slice(
     0,
     12000
-  )}\n"""${regenerateBlock}`;
+  )}\n"""`;
 
-  const parsed = await chatStructured(TAILOR_SYSTEM_PROMPT, userPrompt, tailorResponseSchema, {
-    temperature: options.regenerate ? 0.85 : 0.4,
-  });
+  const maxAttempts = options.regenerate ? 2 : 1;
+  let tailored: ResumeData | null = null;
 
-  return fitResumeToOnePage({
-    contact: resume.contact,
-    education: mergeOrderedEntries(resume.education, parsed.education),
-    experience: mergeOrderedEntries(resume.experience, parsed.experience),
-    skillsAndInterests: {
-      certifications: sanitizeStringList(resume.skillsAndInterests.certifications, parsed.skillsAndInterests?.certifications),
-      languages: sanitizeStringList(resume.skillsAndInterests.languages, parsed.skillsAndInterests?.languages),
-      software: sanitizeStringList(resume.skillsAndInterests.software, parsed.skillsAndInterests?.software),
-      volunteer: sanitizeStringList(resume.skillsAndInterests.volunteer, parsed.skillsAndInterests?.volunteer),
-      interests: sanitizeStringList(resume.skillsAndInterests.interests, parsed.skillsAndInterests?.interests),
-    },
-  });
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const userPrompt =
+      basePrompt + (options.regenerate ? regenerateInstructions(previousBullets, attempt) : "");
+
+    const parsed = await chatStructured(TAILOR_SYSTEM_PROMPT, userPrompt, tailorResponseSchema, {
+      // OpenAI only — Anthropic Sonnet 5 rejects temperature.
+      temperature: options.regenerate ? 0.9 : 0.4,
+      // Stronger effort on regenerate so Claude actually varies phrasing.
+      effort: options.regenerate ? (attempt === 0 ? "high" : "xhigh") : undefined,
+    });
+
+    tailored = buildTailoredResume(resume, parsed);
+
+    if (!options.regenerate) break;
+    // If the new draft still shares most bullet strings with the rejected one,
+    // try one harder pass before returning.
+    if (phrasingOverlap(options.previousResume, tailored) < 0.45) break;
+  }
+
+  return tailored ?? resume;
 }
