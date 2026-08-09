@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { FileText, Loader2, Sparkles, Upload } from "lucide-react";
+import { FileText, Loader2, Upload } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -99,8 +99,8 @@ export function SourceStep({
               onChange={(e) => setFile(e.target.files?.[0] || null)}
             />
             <Button onClick={handleUploadSubmit} disabled={loading || !file} className="w-fit">
-              {loading ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-              Parse my resume
+              {loading ? <Loader2 className="size-4 animate-spin" /> : null}
+              Submit
             </Button>
           </TabsContent>
 
@@ -112,8 +112,8 @@ export function SourceStep({
               className="min-h-40"
             />
             <Button onClick={handlePasteSubmit} disabled={loading} className="w-fit">
-              {loading ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-              Parse my background
+              {loading ? <Loader2 className="size-4 animate-spin" /> : null}
+              Submit
             </Button>
           </TabsContent>
 

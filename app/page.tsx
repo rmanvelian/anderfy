@@ -45,32 +45,28 @@ export default function Home() {
       {/* UCLA Brand Gradient (Darker Blue -> UCLA Blue), stopping short of Lighter
           Blue wherever headline text sits so contrast stays safely high. */}
       <section className="relative overflow-hidden bg-gradient-to-b from-ucla-darkest-blue via-ucla-blue to-ucla-blue">
-        <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-6 px-4 py-20 text-center sm:px-6">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-ucla-gold px-3 py-1 text-xs font-semibold text-ucla-darkest-blue">
-            <GraduationCap className="size-3.5" />
-            UCLA Anderson-style resume format
-          </span>
-          <h1 className="text-4xl text-white sm:text-5xl">
-            Build an Anderson-formatted resume, tailored to the job you want.
+        <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-6 px-4 pt-20 pb-0 text-center sm:px-6">
+          <h1 className="flex w-full max-w-4xl flex-col gap-4 text-ucla-gold sm:gap-5">
+            <span className="text-4xl sm:text-5xl">Anderfy</span>
+            <span className="text-[clamp(1.35rem,3.8vw,2.25rem)] font-normal whitespace-nowrap">
+              An AI-Powered Anderson Resume Builder
+            </span>
           </h1>
-          <p className="max-w-2xl text-lg text-white/85">
-            Anderfy turns your background — an existing resume or just a rough summary — into a polished,
-            one-page resume in the UCLA Anderson / Parker Career Management Center style, tailored to a specific
-            job posting.
+          <p className="max-w-2xl text-lg text-white/85 sm:text-xl">
+            Anderfy turns your background into a polished, one-page resume in the UCLA Anderson format,
+            tailored to a specific job posting.
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <HeroCta />
-          </div>
         </div>
-        {/* Decorative-only strip completing the official gradient into Lighter Blue — no text overlays it. */}
-        <div className="h-8 w-full bg-gradient-to-b from-ucla-blue to-ucla-lighter-blue" aria-hidden />
+        {/* Center the CTA in the space between the supporting copy and the section divider. */}
+        <div className="flex items-center justify-center py-10 sm:py-12">
+          <HeroCta />
+        </div>
       </section>
 
       <section className="bg-muted">
         <div className="mx-auto w-full max-w-5xl px-4 py-16 sm:px-6">
           <div className="mb-8 max-w-2xl">
-            <span className="eyebrow">The Anderfy advantage</span>
-            <h2 className="mt-2 text-2xl sm:text-3xl">Everything you need to walk in ready</h2>
+            <h2 className="text-2xl text-ucla-blue sm:text-3xl">The Anderfy Advantage</h2>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((feature) => (
@@ -89,17 +85,18 @@ export default function Home() {
       <section
         id={BUILD_SECTION_ID}
         aria-label="Build your Anderson resume"
-        className="scroll-mt-6 border-t bg-background"
+        className="scroll-mt-6 bg-gradient-to-b from-ucla-darkest-blue via-ucla-blue to-ucla-blue"
       >
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-12 sm:px-6">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-16 sm:px-6">
           <div className="max-w-2xl">
-            <span className="eyebrow">Build</span>
-            <h2 className="mt-2 text-2xl sm:text-3xl">Anderfy your resume</h2>
-            <p className="mt-2 text-muted-foreground">
+            <h2 className="text-2xl text-ucla-gold sm:text-3xl">Anderfy Your Resume</h2>
+            <p className="mt-2 text-white/85">
               Upload or paste your background, add a job posting, then review and export.
             </p>
           </div>
-          <BuildWizard />
+          <div className="rounded-xl bg-white p-4 text-foreground shadow-sm sm:p-6">
+            <BuildWizard />
+          </div>
         </div>
       </section>
     </div>

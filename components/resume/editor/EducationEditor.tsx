@@ -5,6 +5,7 @@ import { GraduationCap, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { EDUCATION_NONE_VALUE } from "@/lib/educationBullets";
 import { newId } from "@/lib/id";
 import { removeItem, updateItem } from "@/lib/resumeOps";
 import type { EducationEntry } from "@/types/resume";
@@ -20,7 +21,18 @@ export function EducationEditor({
   const addEntry = () =>
     onChange([
       ...entries,
-      { id: newId(), school: "", location: "", degree: "", gradDate: "", bullets: [] },
+      {
+        id: newId(),
+        school: "",
+        location: "",
+        degree: "",
+        gradDate: "",
+        bullets: [
+          `Honors: ${EDUCATION_NONE_VALUE}`,
+          `Leadership: ${EDUCATION_NONE_VALUE}`,
+          `Membership: ${EDUCATION_NONE_VALUE}`,
+        ],
+      },
     ]);
 
   return (
@@ -74,12 +86,16 @@ export function EducationEditor({
             </Field>
           </div>
           <div className="mt-3">
-            <Label className="mb-1.5 block">Honors / leadership / membership (optional)</Label>
+            <Label className="mb-1.5 block">Honors / Leadership / Membership</Label>
             <BulletListEditor
               bullets={ed.bullets}
               onChange={(bullets) => onChange(updateItem(entries, ed.id, { bullets }))}
-              placeholder="Leadership: Treasurer, Student Investment Fund"
+              placeholder={`Honors: ${EDUCATION_NONE_VALUE}`}
             />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Anderson format: keep Honors, Leadership, and Membership — use
+              &quot;{EDUCATION_NONE_VALUE}&quot; if blank.
+            </p>
           </div>
         </div>
       ))}

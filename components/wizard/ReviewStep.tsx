@@ -1,14 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { Download, FileType, Loader2, Sparkles } from "lucide-react";
+import { Download, FileType, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageFitIndicator } from "@/components/resume/PageFitIndicator";
 import { ResumeEditor } from "@/components/resume/ResumeEditor";
 import { downloadResumeExport } from "@/lib/clientExport";
+import { tailorResumeClient } from "@/lib/clientResume";
+import { finalizeResumeAgainstSource } from "@/lib/finalizeResume";
+import { PREVIEW_LETTERBOX_BG } from "@/lib/previewTheme";
 import type { JobPosting, ResumeData } from "@/types/resume";
 
 const ResumePdfPreview = dynamic(
@@ -16,35 +19,74 @@ const ResumePdfPreview = dynamic(
   { ssr: false, loading: () => <PreviewSkeleton /> }
 );
 
-function PreviewSkeleton() {
+function PreviewSkeleton({ label = "Loading preview…" }: { label?: string }) {
   return (
-    <div className="flex h-full min-h-[600px] w-full items-center justify-center rounded-md border bg-muted/30 text-sm text-muted-foreground">
-      Loading preview…
+    <div
+      className="flex h-full w-full items-center justify-center text-sm text-white/70"
+      style={{ backgroundColor: PREVIEW_LETTERBOX_BG }}
+    >
+      {label}
     </div>
   );
 }
 
 export function ReviewStep({
   resume,
+  sourceResume,
   jobPosting,
   onChange,
-  onRetailor,
+  onBack,
   onStartOver,
 }: {
   resume: ResumeData;
+  sourceResume: ResumeData;
   jobPosting: JobPosting;
   onChange: (next: ResumeData) => void;
-  onRetailor: () => void;
+  onBack: () => void;
   onStartOver: () => void;
 }) {
   const [exporting, setExporting] = useState<"pdf" | "docx" | null>(null);
+  const [regenerating, setRegenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Keep experience/Additional valid and the draft on one page without wiping
+  // sourced Additional rows or emptying experience roles.
+  useEffect(() => {
+    if (regenerating) return;
+    const finalized = finalizeResumeAgainstSource(resume, sourceResume);
+    if (JSON.stringify(finalized) !== JSON.stringify(resume)) {
+      onChange(finalized);
+    }
+  }, [resume, sourceResume, onChange, regenerating]);
+
+  const handleGenerateNew = async () => {
+    if (!jobPosting.rawText.trim()) {
+      onBack();
+      return;
+    }
+    setRegenerating(true);
+    setError(null);
+    try {
+      const next = await tailorResumeClient(sourceResume, jobPosting, {
+        regenerate: true,
+        previousResume: resume,
+      });
+      onChange(next);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to generate a new resume.");
+    } finally {
+      setRegenerating(false);
+    }
+  };
 
   const handleExport = async (kind: "pdf" | "docx") => {
     setExporting(kind);
     setError(null);
     try {
-      await downloadResumeExport(kind, resume);
+      await downloadResumeExport(
+        kind,
+        finalizeResumeAgainstSource(resume, sourceResume)
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Export failed.");
     } finally {
@@ -53,7 +95,7 @@ export function ReviewStep({
   };
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4">
         <Card>
           <CardContent className="flex flex-col gap-4 pt-2">
@@ -65,7 +107,7 @@ export function ReviewStep({
                   Everything here is editable — AI output is a draft, not the final word.
                 </p>
               </div>
-              <PageFitIndicator resume={resume} />
+              <PageFitIndicator />
             </div>
 
             {error && (
@@ -80,32 +122,46 @@ export function ReviewStep({
         </Card>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="ghost" onClick={onStartOver}>
+          <Button variant="outline" onClick={onBack} disabled={regenerating}>
+            Back
+          </Button>
+          <Button variant="outline" onClick={onStartOver} disabled={regenerating}>
             Start over
           </Button>
-          <Button variant="outline" onClick={onRetailor}>
-            <Sparkles className="size-4" />
-            {jobPosting.rawText.trim() ? "Re-tailor to job posting" : "Tailor to a job posting"}
+          <Button variant="outline" onClick={handleGenerateNew} disabled={regenerating}>
+            {regenerating ? <Loader2 className="size-4 animate-spin" /> : null}
+            Generate new resume
           </Button>
         </div>
       </div>
 
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold">Live preview</h2>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => handleExport("docx")} disabled={exporting !== null}>
+            <Button
+              variant="outline"
+              onClick={() => handleExport("docx")}
+              disabled={exporting !== null || regenerating}
+            >
               {exporting === "docx" ? <Loader2 className="size-4 animate-spin" /> : <FileType className="size-4" />}
               Download DOCX
             </Button>
-            <Button onClick={() => handleExport("pdf")} disabled={exporting !== null}>
+            <Button onClick={() => handleExport("pdf")} disabled={exporting !== null || regenerating}>
               {exporting === "pdf" ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
               Download PDF
             </Button>
           </div>
         </div>
-        <div className="min-h-[720px] flex-1">
-          <ResumePdfPreview resume={resume} />
+        <div
+          className="w-full overflow-hidden rounded-md border aspect-[8.5/11]"
+          style={{ backgroundColor: PREVIEW_LETTERBOX_BG }}
+        >
+          {regenerating ? (
+            <PreviewSkeleton label="Generating a new resume…" />
+          ) : (
+            <ResumePdfPreview resume={resume} />
+          )}
         </div>
       </div>
     </div>

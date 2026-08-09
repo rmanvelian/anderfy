@@ -24,7 +24,7 @@ export function WizardStepper({ current }: { current: WizardStepKey }) {
             <div
               className={cn(
                 "flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold",
-                isDone && "border-primary bg-primary text-primary-foreground",
+                isDone && "border-ucla-gold bg-ucla-gold text-ucla-blue",
                 isCurrent && "border-ucla-gold bg-ucla-gold text-ucla-darkest-blue",
                 !isDone && !isCurrent && "border-muted-foreground/30 text-muted-foreground"
               )}
@@ -40,7 +40,10 @@ export function WizardStepper({ current }: { current: WizardStepKey }) {
               {step.label}
             </span>
             {index < STEPS.length - 1 && (
-              <div className="mx-1 h-px flex-1 bg-border" aria-hidden />
+              <div
+                className={cn("mx-1 h-px flex-1", isDone ? "bg-ucla-blue" : "bg-border")}
+                aria-hidden
+              />
             )}
           </li>
         );

@@ -4,6 +4,8 @@ const STORAGE_KEY = "anderfy:draft:v1";
 
 export interface StoredDraft {
   resume: ResumeData;
+  /** Untailored background captured at step 1; used when regenerating. */
+  sourceResume?: ResumeData;
   jobPosting: JobPosting;
   step: "source" | "job" | "review";
 }

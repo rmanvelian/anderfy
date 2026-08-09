@@ -1,6 +1,9 @@
-import { extractResumeHeuristically, tailorResumeHeuristically } from "@/lib/heuristicResume";
-import { extractTextFromFile, UnsupportedFileTypeError } from "@/lib/parseFile";
 import { withBasePath } from "@/lib/apiBase";
+import { finalizeResumeAgainstSource } from "@/lib/finalizeResume";
+import { extractResumeHeuristically, tailorResumeHeuristically } from "@/lib/heuristicResume";
+import { fitResumeToOnePage } from "@/lib/pageFit";
+import { extractTextFromFile, UnsupportedFileTypeError } from "@/lib/parseFile";
+import type { TailorOptions } from "@/lib/tailorOptions";
 import type { JobPosting, ResumeData } from "@/types/resume";
 
 /**
@@ -70,18 +73,19 @@ async function parseResumeLocally(input: {
     );
   }
 
-  return extractResumeHeuristically(rawText);
+  return fitResumeToOnePage(extractResumeHeuristically(rawText));
 }
 
 export async function tailorResumeClient(
   resume: ResumeData,
-  jobPosting: JobPosting
+  jobPosting: JobPosting,
+  options: TailorOptions = {}
 ): Promise<ResumeData> {
   try {
     const res = await fetch(withBasePath("/api/tailor"), {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ resume, jobPosting }),
+      body: JSON.stringify({ resume, jobPosting, options }),
     });
     if (res.ok) {
       const data = (await res.json()) as { resume: ResumeData };
@@ -95,7 +99,10 @@ export async function tailorResumeClient(
     if (error instanceof Error && !isNetworkOrMissingApi(error)) throw error;
   }
 
-  return tailorResumeHeuristically(resume, jobPosting);
+  return finalizeResumeAgainstSource(
+    tailorResumeHeuristically(resume, jobPosting, options),
+    resume
+  );
 }
 
 export async function fetchJobPostingText(url: string): Promise<string> {

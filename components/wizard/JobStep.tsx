@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Link2, Loader2, Sparkles } from "lucide-react";
+import { Link2, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,14 +16,12 @@ export function JobStep({
   jobPosting,
   onJobPostingChange,
   onTailored,
-  onSkipTailoring,
   onBack,
 }: {
   resume: ResumeData;
   jobPosting: JobPosting;
   onJobPostingChange: (next: JobPosting) => void;
   onTailored: (resume: ResumeData) => void;
-  onSkipTailoring: () => void;
   onBack: () => void;
 }) {
   const [url, setUrl] = useState("");
@@ -142,15 +140,12 @@ export function JobStep({
         )}
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="ghost" onClick={onBack}>
+          <Button variant="outline" onClick={onBack}>
             Back
           </Button>
-          <Button variant="outline" onClick={onSkipTailoring}>
-            Skip — edit manually
-          </Button>
           <Button onClick={handleTailor} disabled={tailoring}>
-            {tailoring ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-            Tailor my resume
+            {tailoring ? <Loader2 className="size-4 animate-spin" /> : null}
+            Submit
           </Button>
         </div>
       </CardContent>

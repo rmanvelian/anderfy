@@ -4,17 +4,14 @@ import OpenAI from "openai";
 import type { z } from "zod";
 
 type Provider = "anthropic" | "openai";
+type Effort = "low" | "medium" | "high" | "xhigh";
 
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 // Claude Sonnet 5 uses adaptive thinking by default at a fairly deep effort
 // level; "medium" is enough reasoning for structured resume parsing/tailoring
 // without the extra latency/cost of "high"/"xhigh". Override via env if needed.
-const ANTHROPIC_EFFORT = (process.env.ANTHROPIC_EFFORT || "medium") as
-  | "low"
-  | "medium"
-  | "high"
-  | "xhigh";
+const ANTHROPIC_EFFORT = (process.env.ANTHROPIC_EFFORT || "medium") as Effort;
 
 function resolveProvider(): Provider | null {
   const forced = process.env.LLM_PROVIDER?.toLowerCase();
@@ -51,6 +48,13 @@ function getOpenAIClient(): OpenAI {
   return openaiClient;
 }
 
+export interface ChatStructuredOptions {
+  /** OpenAI only — Claude Sonnet 5 rejects `temperature` as deprecated. */
+  temperature?: number;
+  /** Anthropic adaptive-thinking effort override for this call. */
+  effort?: Effort;
+}
+
 /**
  * Sends a system+user prompt to whichever provider is configured
  * (Anthropic's Claude Sonnet 5 preferred, OpenAI as a fallback) and returns a
@@ -61,7 +65,8 @@ function getOpenAIClient(): OpenAI {
 export async function chatStructured<T>(
   system: string,
   user: string,
-  schema: z.ZodType<T>
+  schema: z.ZodType<T>,
+  options: ChatStructuredOptions = {}
 ): Promise<T> {
   const provider = resolveProvider();
   if (!provider) {
@@ -70,13 +75,16 @@ export async function chatStructured<T>(
 
   if (provider === "anthropic") {
     const client = getAnthropicClient();
+    // Do not pass `temperature` — Claude Sonnet 5 returns invalid_request_error
+    // ("temperature is deprecated for this model"). Use effort instead for
+    // regenerate-style variety.
     const message = await client.messages.parse({
       model: ANTHROPIC_MODEL,
       max_tokens: 8000,
       system,
       messages: [{ role: "user", content: user }],
       output_config: {
-        effort: ANTHROPIC_EFFORT,
+        effort: options.effort ?? ANTHROPIC_EFFORT,
         format: zodOutputFormat(schema),
       },
     });
@@ -94,7 +102,7 @@ export async function chatStructured<T>(
   const client = getOpenAIClient();
   const completion = await client.chat.completions.create({
     model: OPENAI_MODEL,
-    temperature: 0.4,
+    temperature: options.temperature ?? 0.4,
     response_format: { type: "json_object" },
     messages: [
       { role: "system", content: system },
