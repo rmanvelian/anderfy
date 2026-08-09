@@ -52,7 +52,7 @@ export default function Home() {
               An AI-Powered Anderson Resume Builder
             </span>
           </h1>
-          <p className="max-w-2xl text-xl text-white/85 sm:text-2xl">
+          <p className="max-w-2xl text-lg text-white/85 sm:text-xl">
             Anderfy turns your background into a polished, one-page resume in the UCLA Anderson format,
             tailored to a specific job posting.
           </p>
