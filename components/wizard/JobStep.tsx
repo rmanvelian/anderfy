@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { fetchJobPostingText, tailorResumeClient } from "@/lib/clientResume";
 import type { JobPosting, ResumeData } from "@/types/resume";
 
 export function JobStep({
@@ -38,14 +39,8 @@ export function JobStep({
     setFetchingUrl(true);
     setError(null);
     try {
-      const res = await fetch("/api/job-posting/fetch", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ url }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Couldn't fetch that URL.");
-      onJobPostingChange({ ...jobPosting, rawText: data.text });
+      const text = await fetchJobPostingText(url);
+      onJobPostingChange({ ...jobPosting, rawText: text });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
@@ -61,14 +56,8 @@ export function JobStep({
     setTailoring(true);
     setError(null);
     try {
-      const res = await fetch("/api/tailor", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ resume, jobPosting }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to tailor your resume.");
-      onTailored(data.resume as ResumeData);
+      const tailored = await tailorResumeClient(resume, jobPosting);
+      onTailored(tailored);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {

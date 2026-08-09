@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageFitIndicator } from "@/components/resume/PageFitIndicator";
 import { ResumeEditor } from "@/components/resume/ResumeEditor";
+import { downloadResumeExport } from "@/lib/clientExport";
 import type { JobPosting, ResumeData } from "@/types/resume";
 
 const ResumePdfPreview = dynamic(
@@ -21,31 +22,6 @@ function PreviewSkeleton() {
       Loading preview…
     </div>
   );
-}
-
-async function downloadExport(kind: "pdf" | "docx", resume: ResumeData) {
-  const res = await fetch(`/api/export/${kind}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ resume }),
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || `Failed to export ${kind.toUpperCase()}.`);
-  }
-  const blob = await res.blob();
-  const disposition = res.headers.get("content-disposition") || "";
-  const match = disposition.match(/filename="?([^"]+)"?/);
-  const filename = match?.[1] || `resume.${kind}`;
-
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
 }
 
 export function ReviewStep({
@@ -68,7 +44,7 @@ export function ReviewStep({
     setExporting(kind);
     setError(null);
     try {
-      await downloadExport(kind, resume);
+      await downloadResumeExport(kind, resume);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Export failed.");
     } finally {

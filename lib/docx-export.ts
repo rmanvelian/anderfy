@@ -97,7 +97,7 @@ function bullets(items: string[] | undefined, fallbackGapIfEmpty: boolean): Para
   return filtered.map((b, i) => bulletParagraph(b, i === filtered.length - 1));
 }
 
-export async function buildResumeDocx(resume: ResumeData): Promise<Buffer> {
+function buildResumeDocument(resume: ResumeData): Document {
   const children: Paragraph[] = [];
 
   children.push(
@@ -167,7 +167,7 @@ export async function buildResumeDocx(resume: ResumeData): Promise<Buffer> {
     );
   }
 
-  const doc = new Document({
+  return new Document({
     sections: [
       {
         properties: {
@@ -185,6 +185,14 @@ export async function buildResumeDocx(resume: ResumeData): Promise<Buffer> {
       },
     ],
   });
+}
 
-  return Packer.toBuffer(doc);
+/** Node/API export path. */
+export async function buildResumeDocx(resume: ResumeData): Promise<Buffer> {
+  return Packer.toBuffer(buildResumeDocument(resume));
+}
+
+/** Browser-safe export path (GitHub Pages / static hosting). */
+export async function buildResumeDocxBlob(resume: ResumeData): Promise<Blob> {
+  return Packer.toBlob(buildResumeDocument(resume));
 }

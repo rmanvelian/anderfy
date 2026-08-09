@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
+import { withBasePath } from "@/lib/apiBase";
 
 /** Legacy route — the wizard now lives on the landing page at `/#build`. */
 export default function BuildPage() {
   useEffect(() => {
-    window.location.replace("/#build");
+    window.location.replace(`${withBasePath("/")}#build`);
   }, []);
 
   return (

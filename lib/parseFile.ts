@@ -5,6 +5,9 @@ export class UnsupportedFileTypeError extends Error {}
 /**
  * Extracts raw text from an uploaded resume file. Supports PDF and DOCX; any
  * other type (e.g. .txt, .md) is treated as plain text.
+ *
+ * Browser-safe (no Node `Buffer`) so the same helper works for GitHub Pages
+ * static export and for the Node API routes.
  */
 export async function extractTextFromFile(
   buffer: ArrayBuffer,
@@ -12,9 +15,10 @@ export async function extractTextFromFile(
   mimeType: string
 ): Promise<string> {
   const lowerName = fileName.toLowerCase();
+  const bytes = new Uint8Array(buffer);
 
   if (mimeType === "application/pdf" || lowerName.endsWith(".pdf")) {
-    const pdf = await getDocumentProxy(new Uint8Array(buffer));
+    const pdf = await getDocumentProxy(bytes);
     const { text } = await extractText(pdf, { mergePages: true });
     return text;
   }
@@ -24,7 +28,7 @@ export async function extractTextFromFile(
     lowerName.endsWith(".docx")
   ) {
     const mammoth = await import("mammoth");
-    const result = await mammoth.extractRawText({ buffer: Buffer.from(buffer) });
+    const result = await mammoth.extractRawText({ arrayBuffer: buffer });
     return result.value;
   }
 
@@ -35,5 +39,5 @@ export async function extractTextFromFile(
   }
 
   // Fall back to treating the upload as plain text (covers .txt, .md, etc.)
-  return Buffer.from(buffer).toString("utf-8");
+  return new TextDecoder("utf-8").decode(bytes);
 }
