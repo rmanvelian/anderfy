@@ -100,7 +100,7 @@ export function SourceStep({
             />
             <Button onClick={handleUploadSubmit} disabled={loading || !file} className="w-fit">
               {loading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
-              Upload
+              Submit
             </Button>
           </TabsContent>
 
@@ -113,7 +113,7 @@ export function SourceStep({
             />
             <Button onClick={handlePasteSubmit} disabled={loading} className="w-fit">
               {loading ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-              Parse my background
+              Submit
             </Button>
           </TabsContent>
 

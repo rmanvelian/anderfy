@@ -40,7 +40,10 @@ export function WizardStepper({ current }: { current: WizardStepKey }) {
               {step.label}
             </span>
             {index < STEPS.length - 1 && (
-              <div className="mx-1 h-px flex-1 bg-border" aria-hidden />
+              <div
+                className={cn("mx-1 h-px flex-1", isDone ? "bg-ucla-blue" : "bg-border")}
+                aria-hidden
+              />
             )}
           </li>
         );
