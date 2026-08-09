@@ -87,16 +87,18 @@ export default function Home() {
       <section
         id={BUILD_SECTION_ID}
         aria-label="Build your Anderson resume"
-        className="scroll-mt-6 border-t bg-background"
+        className="scroll-mt-6 bg-gradient-to-b from-ucla-darkest-blue via-ucla-blue to-ucla-blue"
       >
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-16 sm:px-6">
           <div className="max-w-2xl">
-            <h2 className="text-2xl text-ucla-blue sm:text-3xl">Anderfy Your Resume</h2>
-            <p className="mt-2 text-muted-foreground">
+            <h2 className="text-2xl text-ucla-gold sm:text-3xl">Anderfy Your Resume</h2>
+            <p className="mt-2 text-white/85">
               Upload or paste your background, add a job posting, then review and export.
             </p>
           </div>
-          <BuildWizard />
+          <div className="rounded-xl bg-white p-4 text-foreground shadow-sm sm:p-6">
+            <BuildWizard />
+          </div>
         </div>
       </section>
     </div>
