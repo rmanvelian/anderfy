@@ -1,21 +1,52 @@
 import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { newId } from "@/lib/id";
-import { mockResumeData, mockTailoringNotes } from "@/lib/mock-data";
+import { extractResumeHeuristically, tailorResumeHeuristically } from "@/lib/heuristicResume";
 import type { JobPosting, ResumeData, TailorResult } from "@/types/resume";
 
-const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+// Anthropic (Claude) is preferred when ANTHROPIC_API_KEY is set; otherwise fall back to
+// OpenAI, then to deterministic mock data if neither key is configured.
+type Provider = "anthropic" | "openai";
 
-export function isMockMode(): boolean {
-  return process.env.MOCK_LLM === "1" || !process.env.OPENAI_API_KEY;
+function getProvider(): Provider | null {
+  if (process.env.ANTHROPIC_API_KEY) return "anthropic";
+  if (process.env.OPENAI_API_KEY) return "openai";
+  return null;
 }
 
-let client: OpenAI | null = null;
-function getClient(): OpenAI {
-  if (!client) {
-    client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5-20250929";
+
+export function isMockMode(): boolean {
+  return process.env.MOCK_LLM === "1" || getProvider() === null;
+}
+
+let openaiClient: OpenAI | null = null;
+function getOpenAiClient(): OpenAI {
+  if (!openaiClient) {
+    openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   }
-  return client;
+  return openaiClient;
+}
+
+let anthropicClient: Anthropic | null = null;
+function getAnthropicClient(): Anthropic {
+  if (!anthropicClient) {
+    anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  }
+  return anthropicClient;
+}
+
+// Claude doesn't have a strict JSON response mode like OpenAI's `response_format`, so we
+// instruct it to return only JSON and defensively strip any surrounding prose/code fences.
+function extractJsonObject(text: string): string {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = fenced ? fenced[1] : text;
+  const start = candidate.indexOf("{");
+  const end = candidate.lastIndexOf("}");
+  if (start === -1 || end === -1 || end < start) return candidate.trim();
+  return candidate.slice(start, end + 1);
 }
 
 // --- Schema used to validate the JSON the model returns (ids are added afterwards). ---
@@ -83,9 +114,26 @@ function attachIds(raw: RawResume): ResumeData {
 }
 
 async function chatJson(system: string, user: string): Promise<unknown> {
-  const openai = getClient();
+  const provider = getProvider();
+  if (provider === "anthropic") {
+    const anthropic = getAnthropicClient();
+    const message = await anthropic.messages.create({
+      model: ANTHROPIC_MODEL,
+      max_tokens: 4096,
+      temperature: 0.4,
+      system: `${system}\n\nRespond with ONLY the raw JSON object and no other text, markdown, or code fences.`,
+      messages: [{ role: "user", content: user }],
+    });
+    const textBlock = message.content.find((block) => block.type === "text");
+    if (!textBlock || textBlock.type !== "text" || !textBlock.text) {
+      throw new Error("The model returned an empty response.");
+    }
+    return JSON.parse(extractJsonObject(textBlock.text));
+  }
+
+  const openai = getOpenAiClient();
   const completion = await openai.chat.completions.create({
-    model: MODEL,
+    model: OPENAI_MODEL,
     temperature: 0.4,
     response_format: { type: "json_object" },
     messages: [
@@ -118,7 +166,7 @@ Rules:
 
 export async function extractResumeFromText(rawText: string): Promise<ResumeData> {
   if (isMockMode()) {
-    return mockResumeData();
+    return extractResumeHeuristically(rawText);
   }
   const json = await chatJson(
     EXTRACT_SYSTEM_PROMPT,
@@ -157,7 +205,7 @@ export async function tailorResumeToJob(
   jobPosting: JobPosting
 ): Promise<TailorResult> {
   if (isMockMode()) {
-    return { resume: mockResumeData(), notes: mockTailoringNotes() };
+    return tailorResumeHeuristically(resume, jobPosting);
   }
   const dropId = <T extends { id: string }>(obj: T): Omit<T, "id"> => {
     const rest: Record<string, unknown> = { ...obj };
