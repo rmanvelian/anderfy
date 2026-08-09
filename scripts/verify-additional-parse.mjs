@@ -119,6 +119,29 @@ function assertAdditional(resume, label) {
   );
 }
 
+// Schools with no honors text still get the three Anderson labeled bullets.
+{
+  const sparse = `
+Pat Student
+pat@ucla.edu
+EDUCATION
+State University
+B.A., History
+2020
+EXPERIENCE
+Corp
+Analyst
+2019 - 2020
+Did analysis
+`;
+  const resume = extractResumeHeuristically(sparse);
+  assert.equal(resume.education.length, 1);
+  const bullets = resume.education[0].bullets ?? [];
+  assert.equal(bullets[0], "Honors: None");
+  assert.equal(bullets[1], "Leadership: None");
+  assert.equal(bullets[2], "Membership: None");
+}
+
 {
   const resume = extractResumeHeuristically(noHeaderLabeled);
   const s = assertAdditional(resume, "no-header-labeled");

@@ -20,7 +20,14 @@ export function EducationEditor({
   const addEntry = () =>
     onChange([
       ...entries,
-      { id: newId(), school: "", location: "", degree: "", gradDate: "", bullets: [] },
+      {
+        id: newId(),
+        school: "",
+        location: "",
+        degree: "",
+        gradDate: "",
+        bullets: ["Honors: None", "Leadership: None", "Membership: None"],
+      },
     ]);
 
   return (
@@ -74,12 +81,16 @@ export function EducationEditor({
             </Field>
           </div>
           <div className="mt-3">
-            <Label className="mb-1.5 block">Honors / leadership / membership (optional)</Label>
+            <Label className="mb-1.5 block">Honors / Leadership / Membership</Label>
             <BulletListEditor
               bullets={ed.bullets}
               onChange={(bullets) => onChange(updateItem(entries, ed.id, { bullets }))}
-              placeholder="Leadership: Treasurer, Student Investment Fund"
+              placeholder="Honors: None"
             />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Anderson format: keep Honors, Leadership, and Membership — use &quot;None&quot; if
+              blank.
+            </p>
           </div>
         </div>
       ))}

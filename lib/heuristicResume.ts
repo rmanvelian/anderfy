@@ -1,3 +1,4 @@
+import { ensureAndersonEducationBullets } from "@/lib/educationBullets";
 import { newId } from "@/lib/id";
 import type {
   ContactInfo,
@@ -703,7 +704,8 @@ export function extractResumeHeuristically(rawText: string): ResumeData {
     }
   }
 
-  return { contact, education, experience, skillsAndInterests };
+  // Anderson format: every school always shows Honors / Leadership / Membership.
+  return ensureAndersonEducationBullets({ contact, education, experience, skillsAndInterests });
 }
 
 // --- Local (non-AI) tailoring: re-prioritize the user's real bullets/skills by their

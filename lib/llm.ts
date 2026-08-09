@@ -84,7 +84,7 @@ Rules:
 - List education and experience entries in reverse-chronological order (most recent first).
 - "degree" should read like "M.B.A., Full-Time Program" or "B.A., Economics" (degree + program/major together in one string).
 - Split multi-line bullet fragments into separate strings in the "bullets" array.
-- For education bullets, use labeled bullets in the form "Honors: ...", "Leadership: ...", or "Membership: ..." when that information is present (e.g. honors/awards, extracurricular leadership roles, club memberships) — this mirrors the Anderson resume format's convention.
+- For EVERY education entry, always include exactly these labeled bullets in this order: "Honors: ...", "Leadership: ...", "Membership: ...". Use the candidate's text when present; if a category is missing or only template placeholder dots, use "None" (e.g. "Honors: None"). Do not omit these three bullets.
 - ALWAYS populate "skillsAndInterests" from any Additional / Skills / Skills & Interests section (Anderson resumes label this ADDITIONAL). Map labeled rows into the matching arrays:
   - "Certifications: ..." → certifications
   - "Languages: ..." → languages
@@ -194,7 +194,7 @@ You will be given (1) the candidate's full resume as JSON, including an "id" for
 
 Your ONLY job is to decide which entries to feature and in what order, and to rewrite each featured entry's bullets to prioritize what's most relevant to the job posting. You are NOT rewriting the candidate's factual history — you are re-emphasizing and re-phrasing existing, true content.
 
-THE SINGLE MOST IMPORTANT RULE: every fact in your output — every number, percentage, dollar amount, team size, tool, technology, company, client type, or outcome — MUST already appear somewhere in the candidate's resume JSON below. The job posting exists only to tell you what to emphasize and which language/keywords to echo; it is never a source of new facts about the candidate. If you are not certain a number or detail is already in the candidate's resume, do not include it — reuse the original bullet text instead of guessing. Do not average, estimate, round to a "nicer" number, or infer a metric that isn't explicitly stated. If an entry (e.g. an education entry) has no existing bullets, leave it with no bullets — do not invent content like "relevant coursework" or achievements just to fill space.
+THE SINGLE MOST IMPORTANT RULE: every fact in your output — every number, percentage, dollar amount, team size, tool, technology, company, client type, or outcome — MUST already appear somewhere in the candidate's resume JSON below. The job posting exists only to tell you what to emphasize and which language/keywords to echo; it is never a source of new facts about the candidate. If you are not certain a number or detail is already in the candidate's resume, do not include it — reuse the original bullet text instead of guessing. Do not average, estimate, round to a "nicer" number, or infer a metric that isn't explicitly stated. Never invent employers, schools, honors, or achievements. For education, always keep the Anderson labeled bullets Honors:/Leadership:/Membership: — copy the candidate's values, or use "None" when the source has nothing for that label (do not invent awards).
 
 Output JSON of this exact shape:
 {
@@ -206,7 +206,7 @@ Output JSON of this exact shape:
 Rules:
 - List ids in your desired display order (most relevant to this job posting first). You do not need to include every entry — any you omit will automatically be kept, unchanged, in their original position, so only include an entry if you're reordering it and/or rewriting its bullets.
 - Every value in "skillsAndInterests" must be copied verbatim (exact spelling) from the candidate's original skillsAndInterests. You may reorder items for relevance, but keep ALL of them — do not omit certifications, languages, software, volunteer, or interests the candidate already listed.
-- For every education entry that already has Honors:/Leadership:/Membership: (or GPA:) bullets, keep those labeled bullets (you may lightly rephrase the text after the label, but do not drop the labels or invent new ones).
+- For every education entry, always output Honors:, Leadership:, and Membership: bullets (in that order). Keep the candidate's values; if a label is missing in the source, use "None". Do not drop these three bullets.
 - Keep each bullet no longer than roughly two lines (about ${MAX_BULLET_CHARS} characters) when rendered on the resume — ideally one line — starting with a strong past-tense action verb, echoing job-posting language only where it truthfully matches something the candidate already did.
 - Fill the one-page Anderson layout: prefer keeping education labeled bullets and the full Additional section; trim only by slightly shortening experience bullets when necessary.
 - EXPERIENCE BULLET COUNTS (hard requirements):

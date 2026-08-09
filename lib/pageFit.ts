@@ -113,25 +113,16 @@ function trimAdditionalExtras(skills: SkillsAndInterests): boolean {
 }
 
 function trimOneEducationBullet(resume: ResumeData): boolean {
-  // Prefer trimming unlabeled extras before Anderson Honors/Leadership/Membership.
+  // Never remove required Anderson Honors/Leadership/Membership rows. Only trim
+  // other education bullets (e.g. extra freeform lines); GPA is secondary.
   for (let i = resume.education.length - 1; i >= 0; i--) {
     const bullets = resume.education[i].bullets ?? [];
-    if (bullets.length <= 1) continue;
-    const unlabeledIdx = [...bullets]
+    const removableIdx = [...bullets]
       .map((b, idx) => ({ b, idx }))
       .reverse()
-      .find(({ b }) => !/^(Honors?|Leadership|Membership|GPA)\s*:/i.test(b.trim()));
-    if (unlabeledIdx) {
-      bullets.splice(unlabeledIdx.idx, 1);
-      resume.education[i].bullets = bullets;
-      return true;
-    }
-  }
-  for (let i = resume.education.length - 1; i >= 0; i--) {
-    const bullets = resume.education[i].bullets ?? [];
-    // Keep at least one education bullet when the school has any.
-    if (bullets.length > 1) {
-      bullets.pop();
+      .find(({ b }) => !/^(Honors?|Leadership|Membership)\s*:/i.test(b.trim()));
+    if (removableIdx) {
+      bullets.splice(removableIdx.idx, 1);
       resume.education[i].bullets = bullets;
       return true;
     }
