@@ -2,9 +2,10 @@ import type { ResumeData } from "@/types/resume";
 
 // Rough heuristic (not a real PDF layout pass) to warn users when their
 // content is likely to spill past the one-page target used by the Anderson
-// format. Tuned against the AndersonResumeDocument's font sizes/margins.
-const CHARS_PER_BULLET_LINE = 100;
-const AVAILABLE_LINES_ONE_PAGE = 46;
+// format. Tuned against AndersonResumeDocument's 11pt body text, 0.5in
+// margins, and one-blank-line spacing between entries/sections.
+const CHARS_PER_BULLET_LINE = 88;
+const AVAILABLE_LINES_ONE_PAGE = 42;
 
 function bulletLines(bullets?: string[]): number {
   if (!bullets) return 0;
@@ -14,32 +15,24 @@ function bulletLines(bullets?: string[]): number {
 }
 
 export function estimateResumeLines(resume: ResumeData): number {
-  let lines = 3; // name + contact + rule
+  let lines = 2; // name + contact
 
   if (resume.education.length > 0) {
-    lines += 2; // section heading
+    lines += 2; // section heading + gap
     for (const ed of resume.education) {
-      lines += 2 + bulletLines(ed.bullets);
+      lines += 2 + bulletLines(ed.bullets) + 1; // header rows + bullets + inter-entry gap
     }
   }
 
   if (resume.experience.length > 0) {
     lines += 2;
     for (const ex of resume.experience) {
-      lines += 2 + bulletLines(ex.bullets);
-    }
-  }
-
-  const leadership = resume.leadership.filter((l) => l.org || l.role);
-  if (leadership.length > 0) {
-    lines += 2;
-    for (const l of leadership) {
-      lines += 2 + bulletLines(l.bullets);
+      lines += 2 + bulletLines(ex.bullets) + 1;
     }
   }
 
   const s = resume.skillsAndInterests;
-  const additionalRows = [s?.skills, s?.languages, s?.interests].filter(
+  const additionalRows = [s?.certifications, s?.languages, s?.software, s?.volunteer, s?.interests].filter(
     (arr) => arr && arr.length > 0
   ).length;
   if (additionalRows > 0) {

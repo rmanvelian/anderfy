@@ -5,7 +5,6 @@ const STORAGE_KEY = "anderfy:draft:v1";
 export interface StoredDraft {
   resume: ResumeData;
   jobPosting: JobPosting;
-  notes?: string[];
   step: "source" | "job" | "review";
 }
 

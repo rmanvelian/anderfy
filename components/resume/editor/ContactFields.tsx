@@ -42,22 +42,13 @@ export function ContactFields({
           placeholder="jordan@email.com"
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1.5 sm:col-span-2">
         <Label htmlFor="contact-linkedin">LinkedIn</Label>
         <Input
           id="contact-linkedin"
           value={contact.linkedin || ""}
           onChange={(e) => set({ linkedin: e.target.value })}
           placeholder="linkedin.com/in/jordanrivera"
-        />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="contact-location">Location</Label>
-        <Input
-          id="contact-location"
-          value={contact.location || ""}
-          onChange={(e) => set({ location: e.target.value })}
-          placeholder="Los Angeles, CA"
         />
       </div>
     </div>

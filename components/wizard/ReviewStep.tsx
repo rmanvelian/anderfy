@@ -51,14 +51,12 @@ async function downloadExport(kind: "pdf" | "docx", resume: ResumeData) {
 export function ReviewStep({
   resume,
   jobPosting,
-  notes,
   onChange,
   onRetailor,
   onStartOver,
 }: {
   resume: ResumeData;
   jobPosting: JobPosting;
-  notes?: string[];
   onChange: (next: ResumeData) => void;
   onRetailor: () => void;
   onStartOver: () => void;
@@ -92,20 +90,6 @@ export function ReviewStep({
               </div>
               <PageFitIndicator resume={resume} />
             </div>
-
-            {notes && notes.length > 0 && (
-              <Alert>
-                <Sparkles className="size-4" />
-                <AlertTitle>Tailoring notes</AlertTitle>
-                <AlertDescription>
-                  <ul className="list-disc pl-4">
-                    {notes.map((note, i) => (
-                      <li key={i}>{note}</li>
-                    ))}
-                  </ul>
-                </AlertDescription>
-              </Alert>
-            )}
 
             {error && (
               <Alert variant="destructive">

@@ -23,8 +23,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await tailorResumeToJob(body.resume, body.jobPosting);
-    return NextResponse.json(result);
+    const resume = await tailorResumeToJob(body.resume, body.jobPosting);
+    return NextResponse.json({ resume });
   } catch (error) {
     console.error("tailor failed", error);
     const message =

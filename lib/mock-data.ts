@@ -11,20 +11,27 @@ export function mockResumeData(): ResumeData {
       phone: "(555) 123-4567",
       email: "jordan.rivera@email.com",
       linkedin: "linkedin.com/in/jordanrivera",
-      location: "Los Angeles, CA",
     },
     education: [
       {
         id: newId(),
+        school: "UCLA Anderson School of Management",
+        location: "Los Angeles, CA",
+        degree: "M.B.A., Full-Time Program",
+        gradDate: "Jun 2028",
+        bullets: [
+          "Leadership: Vice President, Graduate Consulting Association; led a 20-person team advising local nonprofits",
+        ],
+      },
+      {
+        id: newId(),
         school: "University of California, Santa Barbara",
         location: "Santa Barbara, CA",
-        degree: "B.A.",
-        field: "Economics",
-        gpa: "3.7",
-        honors: "Cum Laude",
+        degree: "B.A., Economics",
         gradDate: "Jun 2018",
         bullets: [
-          "Treasurer, Student Investment Fund; managed a $50,000 portfolio and presented quarterly performance to a faculty board",
+          "Honors: Cum Laude, GPA 3.7",
+          "Leadership: Treasurer, Student Investment Fund; managed a $50,000 portfolio and presented quarterly performance to a faculty board",
         ],
       },
     ],
@@ -56,29 +63,12 @@ export function mockResumeData(): ResumeData {
         ],
       },
     ],
-    leadership: [
-      {
-        id: newId(),
-        org: "Big Brothers Big Sisters of Greater Los Angeles",
-        role: "Volunteer Mentor",
-        location: "Los Angeles, CA",
-        dates: "Sep 2019 - Present",
-        bullets: [
-          "Mentor a high-school student weekly on academic planning and college applications",
-        ],
-      },
-    ],
     skillsAndInterests: {
-      skills: ["SQL", "Python", "Tableau", "Advanced Excel/VBA"],
+      certifications: ["Six Sigma Green Belt"],
       languages: ["Spanish (fluent)"],
+      software: ["SQL", "Python", "Tableau", "Advanced Excel/VBA"],
+      volunteer: ["Big Brothers Big Sisters of Greater Los Angeles, Volunteer Mentor, Sep 2019 - Present"],
       interests: ["Marathon running", "Amateur photography", "Chess"],
     },
   };
-}
-
-export function mockTailoringNotes(): string[] {
-  return [
-    "Mock mode: set OPENAI_API_KEY (and remove MOCK_LLM=1) to generate real, job-tailored content.",
-    "Reordered and re-emphasized bullets that resemble common job-posting keywords (this is sample output, not a real AI tailoring pass).",
-  ];
 }
