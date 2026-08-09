@@ -45,7 +45,7 @@ export default function Home() {
       {/* UCLA Brand Gradient (Darker Blue -> UCLA Blue), stopping short of Lighter
           Blue wherever headline text sits so contrast stays safely high. */}
       <section className="relative overflow-hidden bg-gradient-to-b from-ucla-darkest-blue via-ucla-blue to-ucla-blue">
-        <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-6 px-4 py-20 text-center sm:px-6">
+        <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-6 px-4 pt-20 pb-0 text-center sm:px-6">
           <h1 className="flex w-full max-w-4xl flex-col gap-4 text-ucla-gold sm:gap-5">
             <span className="text-4xl sm:text-5xl">Anderfy</span>
             <span className="text-[clamp(1.35rem,3.8vw,2.25rem)] font-normal whitespace-nowrap">
@@ -56,9 +56,10 @@ export default function Home() {
             Anderfy turns your background into a polished, one-page resume in the UCLA Anderson format,
             tailored to a specific job posting.
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <HeroCta />
-          </div>
+        </div>
+        {/* Center the CTA in the space between the supporting copy and the section divider. */}
+        <div className="flex items-center justify-center py-14 sm:py-16">
+          <HeroCta />
         </div>
         {/* Decorative-only strip completing the official gradient into Lighter Blue — no text overlays it. */}
         <div className="h-8 w-full bg-gradient-to-b from-ucla-blue to-ucla-lighter-blue" aria-hidden />
