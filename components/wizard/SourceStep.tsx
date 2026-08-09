@@ -69,7 +69,8 @@ export function SourceStep({
     <Card>
       <CardContent className="flex flex-col gap-5 pt-2">
         <div>
-          <h2 className="text-lg font-semibold">Tell us about your background</h2>
+          <span className="eyebrow">Step 1</span>
+          <h2 className="mt-1 text-lg font-semibold">Tell us about your background</h2>
           <p className="text-sm text-muted-foreground">
             Upload an existing resume, paste some background text, or start from a blank page — we&apos;ll turn
             it into an Anderson-formatted resume next.

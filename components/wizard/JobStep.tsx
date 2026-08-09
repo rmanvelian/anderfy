@@ -80,7 +80,8 @@ export function JobStep({
     <Card>
       <CardContent className="flex flex-col gap-5 pt-2">
         <div>
-          <h2 className="text-lg font-semibold">Paste the target job posting</h2>
+          <span className="eyebrow">Step 2</span>
+          <h2 className="mt-1 text-lg font-semibold">Paste the target job posting</h2>
           <p className="text-sm text-muted-foreground">
             We&apos;ll prioritize and rewrite your bullets to align with this posting&apos;s language and
             requirements, then format everything the Anderson way.

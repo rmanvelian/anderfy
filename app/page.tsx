@@ -50,7 +50,7 @@ export default function Home() {
             <GraduationCap className="size-3.5" />
             UCLA Anderson-style resume format
           </span>
-          <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl">
+          <h1 className="text-4xl text-white sm:text-5xl">
             Build an Anderson-formatted resume, tailored to the job you want
           </h1>
           <p className="max-w-2xl text-lg text-white/85">
@@ -77,14 +77,18 @@ export default function Home() {
         <div className="h-8 w-full bg-gradient-to-b from-ucla-blue to-ucla-lighter-blue" aria-hidden />
       </section>
 
-      <section className="bg-gradient-to-b from-ucla-lightest-blue/50 to-transparent">
+      <section className="bg-muted">
         <div className="mx-auto w-full max-w-5xl px-4 py-16 sm:px-6">
+          <div className="mb-8 max-w-2xl">
+            <span className="eyebrow">The Anderfy advantage</span>
+            <h2 className="mt-2 text-2xl sm:text-3xl">Everything you need to walk in ready</h2>
+          </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((feature) => (
-              <Card key={feature.title} className="bg-card/80 backdrop-blur-sm">
+              <Card key={feature.title}>
                 <CardContent className="flex flex-col gap-2 pt-2">
                   <feature.icon className="size-5 text-ucla-blue" />
-                  <h3 className="font-semibold">{feature.title}</h3>
+                  <h3 className="text-base">{feature.title}</h3>
                   <p className="text-sm text-muted-foreground">{feature.description}</p>
                 </CardContent>
               </Card>

@@ -21,10 +21,27 @@ Management Center (Parker CMC) recommends, tailored to a specific job posting.
 
 There's no login and no server-side database — your draft is kept in your browser's `localStorage`.
 
+## No fabricated facts, by construction
+
+Tailoring is deliberately scoped so the model can't introduce new facts about the candidate:
+
+- The AI is only ever allowed to (a) choose which existing education/experience entries to feature and in
+  what order, and (b) rewrite those entries' bullets. It never controls factual fields — company, school,
+  title, dates, location, contact info always come straight from the user's original resume
+  (`lib/tailorMerge.ts`), so the model has no channel through which to rename/invent an employer or degree.
+- Every rewritten bullet is checked against the original bullets it's replacing
+  (`lib/numberGuard.ts`): if it contains a number (a percentage, dollar figure, team size, etc.) that
+  doesn't appear anywhere in the source bullets, the rewrite is discarded and the original bullet is kept
+  instead.
+- `skillsAndInterests` values proposed by the model are filtered to only those that already exist
+  (verbatim) in the user's original list.
+- The job posting is passed to the model purely as *context* for what to emphasize — the prompt explicitly
+  states it is never a source of facts about the candidate.
+
 ## Tech stack
 
 - **Next.js (App Router) + TypeScript + Tailwind CSS + shadcn/ui**
-- **OpenAI API** for resume parsing and job-tailored rewriting (see `lib/llm.ts`)
+- **OpenAI API** for resume parsing and job-tailored rewriting (see `lib/llm.ts`, `lib/tailorMerge.ts`)
 - **`@react-pdf/renderer`** renders the resume for both the on-screen preview and the downloaded PDF, so
   they're always in sync (`components/resume/AndersonResumeDocument.tsx`)
 - **`docx`** generates an editable Word version with equivalent structure/styling (`lib/docx-export.ts`)
@@ -64,9 +81,20 @@ components/
   wizard/                  the three wizard steps + stepper
 lib/
   llm.ts                   OpenAI wrapper (+ mock mode) for parsing/tailoring
+  tailorMerge.ts           merges AI-proposed bullets/order back onto the original resume's facts
+  numberGuard.ts           flags/reverts bullets that introduce an unverified number
   parseFile.ts             PDF/DOCX -> raw text extraction
   docx-export.ts           ResumeData -> .docx buffer
   pageFit.ts                heuristic one-page-length estimator
   storage.ts               localStorage draft persistence
 types/resume.ts             shared ResumeData / JobPosting types
 ```
+
+## Design language
+
+The app's own UI (not the generated resume, which stays conservative black-and-white per the Anderson
+format) is styled to feel like an extension of [anderson.ucla.edu](https://www.anderson.ucla.edu/): Open
+Sans (the same fallback the Anderson site uses for its licensed "freight-sans-pro"), muted charcoal body
+text rather than pure black, UCLA Blue reserved for links/accents/buttons, light-gray alternating section
+backgrounds, bold sans-serif headings, pill-shaped buttons, and small uppercase "eyebrow" labels — all
+patterns pulled directly from the Anderson site's own stylesheet.

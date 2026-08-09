@@ -83,7 +83,8 @@ export function ReviewStep({
           <CardContent className="flex flex-col gap-4 pt-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 className="text-lg font-semibold">Review &amp; edit</h2>
+                <span className="eyebrow">Step 3</span>
+                <h2 className="mt-1 text-lg font-semibold">Review &amp; edit</h2>
                 <p className="text-sm text-muted-foreground">
                   Everything here is editable — AI output is a draft, not the final word.
                 </p>

@@ -15,8 +15,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-open-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, monospace;
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -67,23 +67,27 @@
 }
 
 :root {
+  /* Colors below are tuned to match anderson.ucla.edu's own palette, not just
+     the abstract brand guide: muted charcoal body text (not pure black),
+     neutral light-gray chrome, and UCLA Blue reserved for links/accents —
+     the same balance the Anderson site itself uses. */
   --background: #ffffff;
-  --foreground: #0b2436;
+  --foreground: #323232;
   --card: #ffffff;
-  --card-foreground: #0b2436;
+  --card-foreground: #323232;
   --popover: #ffffff;
-  --popover-foreground: #0b2436;
+  --popover-foreground: #323232;
   --primary: #2774ae;
   --primary-foreground: #ffffff;
   --secondary: #daebfe;
   --secondary-foreground: #003b5c;
-  --muted: #eff5fc;
-  --muted-foreground: #4b6478;
-  --accent: #eaf3fe;
-  --accent-foreground: #0b2436;
+  --muted: #f8f8f8;
+  --muted-foreground: #5b6b78;
+  --accent: #f1f6fa;
+  --accent-foreground: #003b5c;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: #d7e4f0;
-  --input: #d7e4f0;
+  --border: #dfdfdf;
+  --input: #dfdfdf;
   --ring: #2774ae;
   --chart-1: #daebfe;
   --chart-2: #8bb8e8;
@@ -91,13 +95,13 @@
   --chart-4: #005587;
   --chart-5: #003b5c;
   --radius: 0.625rem;
-  --sidebar: #f7fafd;
-  --sidebar-foreground: #0b2436;
+  --sidebar: #f8f8f8;
+  --sidebar-foreground: #323232;
   --sidebar-primary: #2774ae;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #eaf3fe;
-  --sidebar-accent-foreground: #0b2436;
-  --sidebar-border: #d7e4f0;
+  --sidebar-accent: #f1f6fa;
+  --sidebar-accent-foreground: #003b5c;
+  --sidebar-border: #dfdfdf;
   --sidebar-ring: #2774ae;
 }
 
@@ -141,15 +145,36 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* A soft, brand-tinted wash at the top of every page — subtle enough that
-       all body copy (which sits on white/near-white cards) stays fully legible. */
-    background-image: linear-gradient(180deg, var(--color-ucla-lightest-blue) 0%, var(--background) 480px);
-    background-repeat: no-repeat;
-  }
-  .dark body {
-    background-image: linear-gradient(180deg, var(--color-ucla-darker-blue) 0%, var(--background) 480px);
   }
   html {
     @apply font-sans;
+  }
+  /* Matches anderson.ucla.edu's global heading rule: bold, tight leading,
+     a touch of letter-spacing, in the site's sans-serif family. */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+  }
+}
+
+@layer components {
+  /* Small uppercase "eyebrow" label, matching the tag/category style used
+     throughout anderson.ucla.edu above headlines and section intros. */
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-ucla-blue);
   }
 }

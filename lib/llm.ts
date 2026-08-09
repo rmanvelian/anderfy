@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { newId } from "@/lib/id";
 import { mockResumeData } from "@/lib/mock-data";
+import { mergeOrderedEntries, sanitizeStringList } from "@/lib/tailorMerge";
 import type { JobPosting, ResumeData } from "@/types/resume";
 
 const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
@@ -119,24 +120,60 @@ export async function extractResumeFromText(rawText: string): Promise<ResumeData
   return attachIds(parsed);
 }
 
-const TAILOR_SYSTEM_PROMPT = `You are an expert MBA career coach who specializes in the UCLA Anderson School of Management (Parker Career Management Center) resume format. That format is:
-- One page, reverse-chronological, standard conservative business formatting (no colors, no graphics).
-- Sections in this order: EDUCATION, EXPERIENCE (most space-consuming), then ADDITIONAL (certifications, languages, software, volunteer work, interests).
-- Every experience bullet uses the S-T-A-R framework (Situation/Task, Action, Result), starts with a strong past-tense action verb, and quantifies impact wherever possible.
-- Education bullets use labeled bullets in the form "Honors: ...", "Leadership: ...", or "Membership: ..." rather than free-form prose.
-- Content is tailored to the target audience: bullets should be reordered and rewritten (never fabricated) to foreground the experience, skills, and keywords most relevant to the target job posting.
+// --- Tailoring ---
+//
+// Deliberately narrow contract: the model may ONLY (a) choose which existing
+// education/experience entries (by id) to feature and in what order, (b)
+// rewrite each entry's bullets, and (c) select/reorder existing
+// skillsAndInterests values. It never touches factual fields (company,
+// school, title, dates, location, contact info) — those are always copied
+// verbatim from the user's original resume in `mergeOrderedEntries`, so the
+// model has no way to rename/invent an employer, school, or date. Rewritten
+// bullets are additionally checked by `introducesUnverifiedNumbers` and
+// discarded (falling back to the original bullets) if they contain a number
+// not present anywhere in the source bullets for that entry. Together this
+// makes fabricated facts structurally very difficult, not just discouraged
+// by the prompt below.
 
-You will be given (1) a candidate's existing resume data as JSON and (2) a target job posting. Rewrite and restructure the resume into the exact same JSON shape as the input, tailored to the job posting:
+const tailorResponseSchema = z.object({
+  education: z
+    .array(z.object({ id: z.string(), bullets: z.array(z.string()).default([]) }))
+    .default([]),
+  experience: z
+    .array(z.object({ id: z.string(), bullets: z.array(z.string()).default([]) }))
+    .default([]),
+  skillsAndInterests: z
+    .object({
+      certifications: z.array(z.string()).optional().default([]),
+      languages: z.array(z.string()).optional().default([]),
+      software: z.array(z.string()).optional().default([]),
+      volunteer: z.array(z.string()).optional().default([]),
+      interests: z.array(z.string()).optional().default([]),
+    })
+    .optional(),
+});
 
-${RESUME_JSON_SHAPE}
+const TAILOR_SYSTEM_PROMPT = `You are an expert MBA career coach who specializes in the UCLA Anderson School of Management (Parker Career Management Center) resume format: one page, reverse-chronological, conservative business formatting, EDUCATION then EXPERIENCE then ADDITIONAL, with every experience bullet using the S-T-A-R framework (strong past-tense action verb, quantified result) and education bullets using labeled bullets like "Honors: ...", "Leadership: ...", "Membership: ...".
+
+You will be given (1) the candidate's full resume as JSON, including an "id" for each education/experience entry, and (2) a target job posting.
+
+Your ONLY job is to decide which entries to feature and in what order, and to rewrite each featured entry's bullets to prioritize what's most relevant to the job posting. You are NOT rewriting the candidate's factual history — you are re-emphasizing and re-phrasing existing, true content.
+
+THE SINGLE MOST IMPORTANT RULE: every fact in your output — every number, percentage, dollar amount, team size, tool, technology, company, client type, or outcome — MUST already appear somewhere in the candidate's resume JSON below. The job posting exists only to tell you what to emphasize and which language/keywords to echo; it is never a source of new facts about the candidate. If you are not certain a number or detail is already in the candidate's resume, do not include it — reuse the original bullet text instead of guessing. Do not average, estimate, round to a "nicer" number, or infer a metric that isn't explicitly stated.
+
+Output JSON of this exact shape:
+{
+  "education": [ { "id": "<id copied from an input education entry>", "bullets": string[] } ],
+  "experience": [ { "id": "<id copied from an input experience entry>", "bullets": string[] } ],
+  "skillsAndInterests": { "certifications": string[], "languages": string[], "software": string[], "volunteer": string[], "interests": string[] }
+}
 
 Rules:
-- Never invent employers, titles, dates, schools, or metrics that were not present (or reasonably implied) in the source resume. You may rephrase and re-prioritize, not fabricate facts.
-- Prioritize and reorder bullets within each entry so the most job-relevant, highest-impact bullets come first.
-- Rewrite experience bullets to be concise (roughly one line each), start with a strong past-tense action verb, and echo language/keywords from the job posting where truthful and natural.
-- Keep the total content tight enough to fit on one page: aim for at most 3-4 bullets per recent role, 2-3 for older roles, and trim the "skillsAndInterests" section if space is tight.
-- If information is missing from the source resume, leave the corresponding field as an empty string/array rather than guessing.
-- Output ONLY the resume JSON object described above (no wrapper object, no commentary).`;
+- List ids in your desired display order (most relevant to this job posting first). You do not need to include every entry — any you omit will automatically be kept, unchanged, in their original position, so only include an entry if you're reordering it and/or rewriting its bullets.
+- Every value in "skillsAndInterests" must be copied verbatim (exact spelling) from the candidate's original skillsAndInterests — you may select a relevant subset and reorder them, but never add a new one.
+- Keep each bullet roughly one line, starting with a strong past-tense action verb, echoing job-posting language only where it truthfully matches something the candidate already did.
+- Aim for at most 3-4 bullets for the most relevant/recent entries and 2-3 for others, to help the final resume fit one page.
+- Output ONLY the JSON object described above (no commentary, no markdown fences).`;
 
 export async function tailorResumeToJob(
   resume: ResumeData,
@@ -145,24 +182,29 @@ export async function tailorResumeToJob(
   if (isMockMode()) {
     return mockResumeData();
   }
-  const dropId = <T extends { id: string }>(obj: T): Omit<T, "id"> => {
-    const rest: Record<string, unknown> = { ...obj };
-    delete rest.id;
-    return rest as Omit<T, "id">;
-  };
-  const stripIds = (obj: ResumeData) => ({
-    contact: obj.contact,
-    education: obj.education.map(dropId),
-    experience: obj.experience.map(dropId),
-    skillsAndInterests: obj.skillsAndInterests,
-  });
-  const userPrompt = `Candidate resume JSON:\n${JSON.stringify(stripIds(resume))}\n\nTarget job posting${
-    jobPosting.title ? ` (title: ${jobPosting.title})` : ""
-  }${jobPosting.company ? ` at ${jobPosting.company}` : ""}:\n"""\n${jobPosting.rawText.slice(
+
+  const userPrompt = `Candidate resume JSON (source of truth — do not add facts beyond what's here):\n${JSON.stringify(
+    resume
+  )}\n\nTarget job posting${jobPosting.title ? ` (title: ${jobPosting.title})` : ""}${
+    jobPosting.company ? ` at ${jobPosting.company}` : ""
+  } (context only, not a source of facts about the candidate):\n"""\n${jobPosting.rawText.slice(
     0,
     12000
   )}\n"""`;
+
   const json = await chatJson(TAILOR_SYSTEM_PROMPT, userPrompt);
-  const parsed = resumeSchema.parse(json);
-  return attachIds(parsed);
+  const parsed = tailorResponseSchema.parse(json);
+
+  return {
+    contact: resume.contact,
+    education: mergeOrderedEntries(resume.education, parsed.education),
+    experience: mergeOrderedEntries(resume.experience, parsed.experience),
+    skillsAndInterests: {
+      certifications: sanitizeStringList(resume.skillsAndInterests.certifications, parsed.skillsAndInterests?.certifications),
+      languages: sanitizeStringList(resume.skillsAndInterests.languages, parsed.skillsAndInterests?.languages),
+      software: sanitizeStringList(resume.skillsAndInterests.software, parsed.skillsAndInterests?.software),
+      volunteer: sanitizeStringList(resume.skillsAndInterests.volunteer, parsed.skillsAndInterests?.volunteer),
+      interests: sanitizeStringList(resume.skillsAndInterests.interests, parsed.skillsAndInterests?.interests),
+    },
+  };
 }
