@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { MAX_BULLET_CHARS } from "@/lib/bulletLength";
+import { extractResumeHeuristically, tailorResumeHeuristically } from "@/lib/heuristicResume";
 import { newId } from "@/lib/id";
 import { chatStructured, isLlmConfigured } from "@/lib/llmClient";
-import { mockResumeData } from "@/lib/mock-data";
 import { mergeOrderedEntries, sanitizeStringList } from "@/lib/tailorMerge";
 import type { JobPosting, ResumeData } from "@/types/resume";
 
@@ -84,7 +84,7 @@ Rules:
 
 export async function extractResumeFromText(rawText: string): Promise<ResumeData> {
   if (isMockMode()) {
-    return mockResumeData();
+    return extractResumeHeuristically(rawText);
   }
   const parsed = await chatStructured(
     EXTRACT_SYSTEM_PROMPT,
@@ -145,7 +145,7 @@ export async function tailorResumeToJob(
   jobPosting: JobPosting
 ): Promise<ResumeData> {
   if (isMockMode()) {
-    return mockResumeData();
+    return tailorResumeHeuristically(resume, jobPosting);
   }
 
   const userPrompt = `Candidate resume JSON (source of truth — do not add facts beyond what's here):\n${JSON.stringify(

@@ -66,17 +66,23 @@ Open [http://localhost:3000](http://localhost:3000).
 `LLM_PROVIDER=openai` to force one explicitly. Both providers use native structured-output support (zod
 schema in, validated object out) rather than hand-rolled JSON parsing.
 
-### Running without an API key
+### Running without an API key (free local mode)
 
-Set `MOCK_LLM=1` in your environment (see `.env.example`) to bypass real AI calls entirely and use
-deterministic mock data for resume parsing/tailoring. This is useful for exercising the upload → edit →
-export pipeline without a live API key. `lib/llm.ts` also automatically falls back to mock mode if neither
-`ANTHROPIC_API_KEY` nor `OPENAI_API_KEY` is set.
+Set `MOCK_LLM=1` in your environment (see `.env.example`) to skip paid LLM calls entirely. `lib/llm.ts`
+also automatically falls back to this mode if neither `ANTHROPIC_API_KEY` nor `OPENAI_API_KEY` is set.
 
-**Important:** in mock mode, the app always returns the same fixed sample resume ("Jordan Rivera") no
-matter what you upload or paste — that's expected in mock mode, but if you have a real API key configured
-and are still seeing generic/sample output instead of your own data, double-check `MOCK_LLM` isn't set to
-`1` somewhere in your environment.
+This is **not** canned placeholder data — `lib/heuristicResume.ts` runs a zero-cost, regex/layout-based
+parser and tailoring pass over the resume and job posting you actually provide:
+
+- **Parsing**: detects resume sections (education/experience/additional), groups lines into entries, and
+  pulls out dates, locations, titles, GPA/honors (as education bullets), etc. from your real
+  uploaded/pasted text. A legacy "Leadership" header is folded into Additional → Volunteer.
+- **Tailoring**: extracts the most frequent meaningful keywords from the job posting and reorders your
+  existing bullets and Additional items (most relevant first) by keyword overlap — it never rewrites or
+  invents content the way an LLM would, but it's real output for your real input.
+
+Configure a real `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` to additionally get AI-rewritten, keyword-echoing
+bullets rather than just reordering.
 
 ## Project structure
 
@@ -95,6 +101,7 @@ components/
 lib/
   llmClient.ts             provider-agnostic structured LLM calls (Anthropic Claude Sonnet 5 / OpenAI)
   llm.ts                   prompts, schemas, and mock-mode fallback for parsing/tailoring
+  heuristicResume.ts       free local parse/tailor used when no API key / MOCK_LLM=1
   tailorMerge.ts           merges AI-proposed bullets/order back onto the original resume's facts
   numberGuard.ts           flags/reverts bullets that introduce an unverified number
   parseFile.ts             PDF/DOCX -> raw text extraction
