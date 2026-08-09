@@ -10,7 +10,7 @@ import { PageFitIndicator } from "@/components/resume/PageFitIndicator";
 import { ResumeEditor } from "@/components/resume/ResumeEditor";
 import { downloadResumeExport } from "@/lib/clientExport";
 import { tailorResumeClient } from "@/lib/clientResume";
-import { normalizeExperienceBullets } from "@/lib/experienceBullets";
+import { finalizeResumeAgainstSource } from "@/lib/finalizeResume";
 import { fitResumeToOnePage } from "@/lib/pageFit";
 import { PREVIEW_LETTERBOX_BG } from "@/lib/previewTheme";
 import type { JobPosting, ResumeData } from "@/types/resume";
@@ -50,16 +50,13 @@ export function ReviewStep({
   const [regenerating, setRegenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Keep experience bullets valid/balanced and the draft on one page.
+  // Keep experience/Additional valid and the draft on one page without wiping
+  // sourced Additional rows or emptying experience roles.
   useEffect(() => {
     if (regenerating) return;
-    const normalized = normalizeExperienceBullets(resume, sourceResume);
-    const fitted = normalizeExperienceBullets(
-      fitResumeToOnePage(normalized),
-      sourceResume
-    );
-    if (JSON.stringify(fitted) !== JSON.stringify(resume)) {
-      onChange(fitted);
+    const finalized = finalizeResumeAgainstSource(resume, sourceResume);
+    if (JSON.stringify(finalized) !== JSON.stringify(resume)) {
+      onChange(finalized);
     }
   }, [resume, sourceResume, onChange, regenerating]);
 

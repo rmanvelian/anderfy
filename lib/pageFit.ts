@@ -1,3 +1,4 @@
+import { ADDITIONAL_TRIM_ORDER } from "@/lib/additionalSection";
 import { trimOneBalancedExperienceBullet } from "@/lib/experienceBullets";
 import type { ResumeData, SkillsAndInterests } from "@/types/resume";
 
@@ -76,18 +77,14 @@ function cloneResume(resume: ResumeData): ResumeData {
   };
 }
 
-/** Drop the last item from the first non-empty Additional list (least critical). */
-function trimAdditional(skills: SkillsAndInterests): boolean {
-  const keys: (keyof SkillsAndInterests)[] = [
-    "interests",
-    "volunteer",
-    "software",
-    "languages",
-    "certifications",
-  ];
-  for (const key of keys) {
+/**
+ * Shorten Additional lists without removing a category row. Keeps ≥1 item in
+ * each non-empty category so the Additional section stays visible.
+ */
+function trimAdditionalExtras(skills: SkillsAndInterests): boolean {
+  for (const key of ADDITIONAL_TRIM_ORDER) {
     const list = skills[key];
-    if (list && list.length > 0) {
+    if (list && list.length > 1) {
       list.pop();
       return true;
     }
@@ -95,34 +92,38 @@ function trimAdditional(skills: SkillsAndInterests): boolean {
   return false;
 }
 
+function trimOneEducationBullet(resume: ResumeData): boolean {
+  for (let i = resume.education.length - 1; i >= 0; i--) {
+    const bullets = resume.education[i].bullets ?? [];
+    if (bullets.length > 0) {
+      bullets.pop();
+      resume.education[i].bullets = bullets;
+      return true;
+    }
+  }
+  return false;
+}
+
 /**
- * Trim bullets / Additional items until the resume is estimated to fit on one
- * page. Never empties an experience entry that still has bullets, and trims
- * experience in a balanced way (max−min bullet counts stay within 1).
+ * Trim bullets / Additional extras until the resume is estimated to fit on one
+ * page. Never empties an experience entry, never removes the last item from an
+ * Additional category (so software/certs/languages/interests rows survive), and
+ * trims experience in a balanced way (max−min bullet counts stay within 1).
  */
 export function fitResumeToOnePage(resume: ResumeData): ResumeData {
   const next = cloneResume(resume);
   let guard = 200;
 
   while (!estimatePageFit(next).fitsOnePage && guard-- > 0) {
-    // Soft content first — don't strip experience roles bare.
-    if (trimAdditional(next.skillsAndInterests)) continue;
+    // Shorten Additional lists first, but keep every category row that exists.
+    if (trimAdditionalExtras(next.skillsAndInterests)) continue;
 
-    let trimmedEducation = false;
-    for (let i = next.education.length - 1; i >= 0; i--) {
-      const bullets = next.education[i].bullets ?? [];
-      if (bullets.length > 0) {
-        bullets.pop();
-        next.education[i].bullets = bullets;
-        trimmedEducation = true;
-        break;
-      }
-    }
-    if (trimmedEducation) continue;
+    if (trimOneEducationBullet(next)) continue;
 
     if (trimOneBalancedExperienceBullet(next.experience)) continue;
 
-    // Nothing safe left to remove.
+    // Stop rather than wiping Additional or emptying experience roles. A slight
+    // heuristic overflow is preferable to dropping the Additional section.
     break;
   }
 

@@ -138,4 +138,51 @@ function resume(experience) {
   assert.equal(out.experience[0].bullets.length, 2);
 }
 
+// Page-fit must not wipe Additional categories down to zero.
+{
+  function cloneSkills(s) {
+    return {
+      certifications: [...(s.certifications ?? [])],
+      languages: [...(s.languages ?? [])],
+      software: [...(s.software ?? [])],
+      volunteer: [...(s.volunteer ?? [])],
+      interests: [...(s.interests ?? [])],
+    };
+  }
+
+  function trimAdditionalExtras(skills) {
+    const order = ["interests", "volunteer", "software", "languages", "certifications"];
+    for (const key of order) {
+      const list = skills[key];
+      if (list && list.length > 1) {
+        list.pop();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  const skills = cloneSkills({
+    certifications: ["CPA"],
+    languages: ["English", "Spanish"],
+    software: ["Python", "Excel", "SQL", "Tableau"],
+    volunteer: ["Tutor"],
+    interests: ["Chess", "Hiking"],
+  });
+
+  // Simulate aggressive trim: only extras may be removed.
+  let guard = 50;
+  while (guard-- > 0 && trimAdditionalExtras(skills)) {
+    /* keep shortening */
+  }
+
+  assert.ok(skills.certifications.length >= 1);
+  assert.ok(skills.languages.length >= 1);
+  assert.ok(skills.software.length >= 1);
+  assert.ok(skills.volunteer.length >= 1);
+  assert.ok(skills.interests.length >= 1);
+  assert.equal(skills.software.length, 1);
+  assert.equal(skills.languages.length, 1);
+}
+
 console.log("verify-experience-bullets: all assertions passed");

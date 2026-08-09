@@ -3,7 +3,7 @@ import { MAX_BULLET_CHARS } from "@/lib/bulletLength";
 import { extractResumeHeuristically, tailorResumeHeuristically } from "@/lib/heuristicResume";
 import { newId } from "@/lib/id";
 import { chatStructured, isLlmConfigured } from "@/lib/llmClient";
-import { normalizeExperienceBullets } from "@/lib/experienceBullets";
+import { finalizeResumeAgainstSource } from "@/lib/finalizeResume";
 import { fitResumeToOnePage } from "@/lib/pageFit";
 import { mergeOrderedEntries, sanitizeStringList } from "@/lib/tailorMerge";
 import type { TailorOptions } from "@/lib/tailorOptions";
@@ -141,7 +141,7 @@ Output JSON of this exact shape:
 
 Rules:
 - List ids in your desired display order (most relevant to this job posting first). You do not need to include every entry — any you omit will automatically be kept, unchanged, in their original position, so only include an entry if you're reordering it and/or rewriting its bullets.
-- Every value in "skillsAndInterests" must be copied verbatim (exact spelling) from the candidate's original skillsAndInterests — you may select a relevant subset and reorder them, but never add a new one.
+- Every value in "skillsAndInterests" must be copied verbatim (exact spelling) from the candidate's original skillsAndInterests — you may select a relevant subset and reorder them, but never add a new one. Do not drop entire Additional categories (certifications, languages, software, volunteer, interests) that the candidate already has — keep at least one item in each non-empty source category so the Additional section remains on the resume.
 - Keep each bullet no longer than roughly two lines (about ${MAX_BULLET_CHARS} characters) when rendered on the resume — ideally one line — starting with a strong past-tense action verb, echoing job-posting language only where it truthfully matches something the candidate already did.
 - EXPERIENCE BULLET COUNTS (hard requirements):
   1. Never leave an experience entry with zero bullets if that entry had bullets in the source resume — include at least one rewritten (or original) bullet for every such role.
@@ -203,11 +203,7 @@ function buildTailoredResume(
       ),
     },
   };
-  // Restore any experience the model emptied, balance counts (max−min ≤ 1),
-  // then trim for one page without stripping a role to zero bullets.
-  // Re-normalize after fit so page-trim cannot leave empties or a max−min > 1.
-  const fitted = fitResumeToOnePage(normalizeExperienceBullets(merged, resume));
-  return normalizeExperienceBullets(fitted, resume);
+  return finalizeResumeAgainstSource(merged, resume);
 }
 
 function regenerateInstructions(previousBullets: string[], attempt: number): string {
@@ -228,10 +224,10 @@ export async function tailorResumeToJob(
   options: TailorOptions = {}
 ): Promise<ResumeData> {
   if (isMockMode()) {
-    const fitted = fitResumeToOnePage(
-      normalizeExperienceBullets(tailorResumeHeuristically(resume, jobPosting, options), resume)
+    return finalizeResumeAgainstSource(
+      tailorResumeHeuristically(resume, jobPosting, options),
+      resume
     );
-    return normalizeExperienceBullets(fitted, resume);
   }
 
   const previousBullets = options.regenerate ? collectBulletPhrasings(options.previousResume) : [];
