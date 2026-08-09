@@ -78,7 +78,7 @@ export function mockResumeData(): ResumeData {
 
 export function mockTailoringNotes(): string[] {
   return [
-    "Mock mode: set OPENAI_API_KEY (and remove MOCK_LLM=1) to generate real, job-tailored content.",
+    "Mock mode: set ANTHROPIC_API_KEY or OPENAI_API_KEY (and remove MOCK_LLM=1) to generate real, job-tailored content.",
     "Reordered and re-emphasized bullets that resemble common job-posting keywords (this is sample output, not a real AI tailoring pass).",
   ];
 }

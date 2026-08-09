@@ -24,7 +24,7 @@ There's no login and no server-side database — your draft is kept in your brow
 ## Tech stack
 
 - **Next.js (App Router) + TypeScript + Tailwind CSS + shadcn/ui**
-- **OpenAI API** for resume parsing and job-tailored rewriting (see `lib/llm.ts`)
+- **Anthropic (Claude) API**, with an OpenAI fallback, for resume parsing and job-tailored rewriting (see `lib/llm.ts`)
 - **`@react-pdf/renderer`** renders the resume for both the on-screen preview and the downloaded PDF, so
   they're always in sync (`components/resume/AndersonResumeDocument.tsx`)
 - **`docx`** generates an editable Word version with equivalent structure/styling (`lib/docx-export.ts`)
@@ -35,18 +35,18 @@ There's no login and no server-side database — your draft is kept in your brow
 
 ```bash
 npm install
-cp .env.example .env.local   # then fill in OPENAI_API_KEY
+cp .env.example .env.local   # then fill in ANTHROPIC_API_KEY (preferred) or OPENAI_API_KEY
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-### Running without an OpenAI key
+### Running without an API key
 
-Set `MOCK_LLM=1` in your environment (see `.env.example`) to bypass the OpenAI API and use deterministic
+Set `MOCK_LLM=1` in your environment (see `.env.example`) to bypass the LLM API and use deterministic
 sample data for resume parsing/tailoring. This is useful for exercising the upload → edit → export pipeline
-without a live API key. `lib/llm.ts` also automatically falls back to mock mode if `OPENAI_API_KEY` isn't
-set at all.
+without a live API key. `lib/llm.ts` also automatically falls back to mock mode if neither `ANTHROPIC_API_KEY`
+nor `OPENAI_API_KEY` is set.
 
 ## Project structure
 
