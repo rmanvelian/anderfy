@@ -99,9 +99,10 @@ export async function tailorResumeClient(
     if (error instanceof Error && !isNetworkOrMissingApi(error)) throw error;
   }
 
-  return fitResumeToOnePage(
+  const fitted = fitResumeToOnePage(
     normalizeExperienceBullets(tailorResumeHeuristically(resume, jobPosting, options), resume)
   );
+  return normalizeExperienceBullets(fitted, resume);
 }
 
 export async function fetchJobPostingText(url: string): Promise<string> {

@@ -54,7 +54,10 @@ export function ReviewStep({
   useEffect(() => {
     if (regenerating) return;
     const normalized = normalizeExperienceBullets(resume, sourceResume);
-    const fitted = fitResumeToOnePage(normalized);
+    const fitted = normalizeExperienceBullets(
+      fitResumeToOnePage(normalized),
+      sourceResume
+    );
     if (JSON.stringify(fitted) !== JSON.stringify(resume)) {
       onChange(fitted);
     }

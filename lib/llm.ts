@@ -205,7 +205,9 @@ function buildTailoredResume(
   };
   // Restore any experience the model emptied, balance counts (max−min ≤ 1),
   // then trim for one page without stripping a role to zero bullets.
-  return fitResumeToOnePage(normalizeExperienceBullets(merged, resume));
+  // Re-normalize after fit so page-trim cannot leave empties or a max−min > 1.
+  const fitted = fitResumeToOnePage(normalizeExperienceBullets(merged, resume));
+  return normalizeExperienceBullets(fitted, resume);
 }
 
 function regenerateInstructions(previousBullets: string[], attempt: number): string {
@@ -226,9 +228,10 @@ export async function tailorResumeToJob(
   options: TailorOptions = {}
 ): Promise<ResumeData> {
   if (isMockMode()) {
-    return fitResumeToOnePage(
+    const fitted = fitResumeToOnePage(
       normalizeExperienceBullets(tailorResumeHeuristically(resume, jobPosting, options), resume)
     );
+    return normalizeExperienceBullets(fitted, resume);
   }
 
   const previousBullets = options.regenerate ? collectBulletPhrasings(options.previousResume) : [];

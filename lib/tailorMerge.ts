@@ -47,15 +47,17 @@ export function mergeOrderedEntries<T extends WithIdAndBullets>(
     if (!source || seen.has(item.id)) continue;
     seen.add(item.id);
 
-    const sourceBullets = source.bullets || [];
+    const sourceBullets = (source.bullets || []).filter((b) => b && b.trim());
     const proposedBullets = (item.bullets || []).filter((b) => b && b.trim());
 
     let safeBullets: string[];
     if (sourceBullets.length === 0) {
       // Nothing here to legitimately rephrase — anything proposed would be invented.
       safeBullets = [];
+    } else if (proposedBullets.length === 0) {
+      // Model emptied the role — keep the source bullets rather than wiping them.
+      safeBullets = sourceBullets;
     } else if (
-      proposedBullets.length > 0 &&
       !introducesUnverifiedNumbers(proposedBullets, sourceBullets) &&
       !exceedsMaxBulletLength(proposedBullets)
     ) {

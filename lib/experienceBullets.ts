@@ -8,15 +8,20 @@ function nonEmpty(bullets: string[] | undefined): string[] {
  * If an experience had bullets in the source resume but ended up with none
  * after tailor/trim, restore the source bullets for that entry.
  */
+function experienceKey(entry: Pick<ExperienceEntry, "company" | "title">): string {
+  return `${entry.company.trim().toLowerCase()}::${entry.title.trim().toLowerCase()}`;
+}
+
 export function restoreEmptyExperienceBullets(
   tailored: ResumeData,
   source: ResumeData
 ): ResumeData {
   const sourceById = new Map(source.experience.map((e) => [e.id, e]));
+  const sourceByKey = new Map(source.experience.map((e) => [experienceKey(e), e]));
   return {
     ...tailored,
     experience: tailored.experience.map((entry) => {
-      const original = sourceById.get(entry.id);
+      const original = sourceById.get(entry.id) ?? sourceByKey.get(experienceKey(entry));
       const sourceBullets = nonEmpty(original?.bullets);
       const currentBullets = nonEmpty(entry.bullets);
       if (sourceBullets.length > 0 && currentBullets.length === 0) {
