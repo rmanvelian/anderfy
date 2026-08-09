@@ -20,7 +20,7 @@ const ResumePdfPreview = dynamic(
 
 function PreviewSkeleton({ label = "Loading preview…" }: { label?: string }) {
   return (
-    <div className="flex aspect-[8.5/11] w-full items-center justify-center rounded-md border bg-muted/30 text-sm text-muted-foreground">
+    <div className="flex h-full w-full items-center justify-center bg-muted/30 text-sm text-muted-foreground">
       {label}
     </div>
   );
