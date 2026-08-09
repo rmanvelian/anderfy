@@ -20,8 +20,38 @@ function hasAnyAdditional(skills: SkillsAndInterests | undefined): boolean {
 }
 
 /**
- * If tailor/page-fit wiped Additional categories that existed in the source
- * resume, restore those source lists so the Anderson Additional section remains.
+ * Reorder `source` items using `proposed` order, then append any source items
+ * the proposal omitted — never drop Additional content the candidate provided.
+ */
+export function reorderKeepAllAdditional(
+  source: string[] | undefined,
+  proposed: string[] | undefined
+): string[] {
+  const originalList = nonEmpty(source);
+  if (originalList.length === 0) return [];
+  if (!proposed || proposed.length === 0) return originalList;
+
+  const originalByLower = new Map(originalList.map((v) => [v.toLowerCase(), v]));
+  const ordered: string[] = [];
+  const used = new Set<string>();
+  for (const value of proposed) {
+    const lower = value.trim().toLowerCase();
+    const match = originalByLower.get(lower);
+    if (match && !used.has(lower)) {
+      ordered.push(match);
+      used.add(lower);
+    }
+  }
+  for (const value of originalList) {
+    const lower = value.toLowerCase();
+    if (!used.has(lower)) ordered.push(value);
+  }
+  return ordered;
+}
+
+/**
+ * Restore any Additional items missing vs the source resume (not only fully
+ * emptied categories). Preserves tailored order for items that remain.
  */
 export function restoreAdditionalFromSource(
   tailored: ResumeData,
@@ -33,13 +63,13 @@ export function restoreAdditionalFromSource(
   let changed = false;
 
   for (const key of ADDITIONAL_KEYS) {
-    const sourceValues = nonEmpty(source.skillsAndInterests[key]);
-    const currentValues = nonEmpty(next[key]);
-    if (sourceValues.length > 0 && currentValues.length === 0) {
-      next[key] = [...sourceValues];
-      changed = true;
-    } else if (currentValues.length !== (next[key] ?? []).length) {
-      next[key] = currentValues;
+    const restored = reorderKeepAllAdditional(
+      source.skillsAndInterests[key],
+      next[key]
+    );
+    const current = nonEmpty(next[key]);
+    if (JSON.stringify(restored) !== JSON.stringify(current)) {
+      next[key] = restored;
       changed = true;
     }
   }
@@ -55,7 +85,7 @@ export function additionalPreservedFromSource(
   for (const key of ADDITIONAL_KEYS) {
     const sourceValues = nonEmpty(source.skillsAndInterests[key]);
     if (sourceValues.length === 0) continue;
-    if (nonEmpty(tailored.skillsAndInterests[key]).length === 0) return false;
+    if (nonEmpty(tailored.skillsAndInterests[key]).length < sourceValues.length) return false;
   }
   return true;
 }

@@ -20,6 +20,8 @@ Los Angeles, CA
 M.B.A., Full-Time Program
 June 2027
 Honors: Dean's List
+Leadership: President, Consulting Club
+Membership: Investment Management Association
 EXPERIENCE
 Acme Corp
 Los Angeles, CA
@@ -105,6 +107,16 @@ function assertAdditional(resume, label) {
   assert.ok(s.interests.some((c) => /Chess/i.test(c)), `interests: ${s.interests}`);
   // Guidance text must not become a software item
   assert.ok(!s.software.some((c) => /try to limit/i.test(c)), `no guidance in software: ${s.software}`);
+  const anderson = resume.education.find((e) => /Anderson/i.test(e.school));
+  assert.ok(anderson, "Anderson school present");
+  const bullets = (anderson.bullets ?? []).join("\n");
+  assert.match(bullets, /Honors:/i, `edu bullets: ${bullets}`);
+  assert.match(bullets, /Leadership:/i, `edu bullets: ${bullets}`);
+  assert.match(bullets, /Membership:/i, `edu bullets: ${bullets}`);
+  assert.ok(
+    !resume.education.some((e) => /^Honors:/i.test(e.school)),
+    "Honors must not be a phantom school"
+  );
 }
 
 {

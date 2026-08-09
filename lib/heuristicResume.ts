@@ -180,38 +180,135 @@ function isBulletLine(line: string): boolean {
   return BULLET_PREFIX_RE.test(line.trim());
 }
 
+/** Anderson education detail rows — must stay on the school, never become a new school. */
+const EDU_LABELED_LINE_RE =
+  /^(Honors?|Leadership|Membership|GPA|Awards?|Activities|Relevant Coursework)\s*:/i;
+
+function isEducationLabeledLine(line: string): boolean {
+  return EDU_LABELED_LINE_RE.test(line.replace(BULLET_PREFIX_RE, "").trim());
+}
+
 function headerComplete(headerLines: string[]): boolean {
   if (headerLines.length >= 2) return true;
   return DATE_RANGE_RE.test(headerLines.join(" ")) || SINGLE_DATE_RE.test(headerLines.join(" "));
 }
 
+function isDegreeLikeLine(line: string): boolean {
+  return /\b(M\.?B\.?A\.?|B\.?A\.?|B\.?S\.?|B\.?B\.?A\.?|M\.?S\.?|M\.?A\.?|Ph\.?D\.?|Bachelor|Master|Doctor|Associate|Undergraduate)\b/i.test(
+    line
+  );
+}
+
+function isDateOnlyLine(line: string): boolean {
+  const cleaned = line.trim();
+  if (!cleaned) return false;
+  if (DATE_RANGE_RE.test(cleaned)) {
+    return cleaned.replace(DATE_RANGE_RE, "").replace(/[|\s,.\-–—]/g, "").length === 0;
+  }
+  if (SINGLE_DATE_RE.test(cleaned)) {
+    return cleaned.replace(SINGLE_DATE_RE, "").replace(/[|\s,.\-–—]/g, "").length === 0;
+  }
+  return false;
+}
+
+function educationHeaderHasDate(headerLines: string[]): boolean {
+  return headerLines.some((l) => DATE_RANGE_RE.test(l) || SINGLE_DATE_RE.test(l));
+}
+
+function educationHeaderHasDegree(headerLines: string[]): boolean {
+  return headerLines.some(isDegreeLikeLine);
+}
+
 // Groups a section's raw lines into entries by tracking a "header" phase (company/school
 // + dates lines) followed by a "bullets" phase, starting a new entry whenever a non-bullet
 // line appears after the current entry's header looks complete or bullets have started.
-function groupIntoEntries(lines: string[]): RawEntry[] {
+function groupIntoEntries(
+  lines: string[],
+  options: { educationMode?: boolean } = {}
+): RawEntry[] {
+  const educationMode = !!options.educationMode;
   const entries: RawEntry[] = [];
   let current: RawEntry | null = null;
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
     if (!line) continue;
+    const withoutBullet = line.replace(BULLET_PREFIX_RE, "").trim();
+
+    // Honors:/Leadership:/Membership: (with or without a bullet marker) attach to
+    // the current school/role instead of opening a phantom entry.
+    if (current && isEducationLabeledLine(withoutBullet)) {
+      current.bullets.push(withoutBullet);
+      continue;
+    }
+
     if (isBulletLine(line)) {
       if (!current) {
         current = { headerLines: [], bullets: [] };
         entries.push(current);
       }
-      current.bullets.push(line.replace(BULLET_PREFIX_RE, "").trim());
-    } else {
-      const startNew = !current || current.bullets.length > 0 || headerComplete(current.headerLines);
-      if (startNew || !current) {
-        current = { headerLines: [], bullets: [] };
-        entries.push(current);
-      }
-      current.headerLines.push(line);
+      current.bullets.push(withoutBullet);
+      continue;
     }
+
+    if (educationMode && current && current.bullets.length === 0) {
+      // Anderson school headers are often 3–4 lines (school, location, degree, date).
+      // Keep absorbing until we see a labeled bullet or a clearly new school.
+      const complete =
+        educationHeaderHasDate(current.headerLines) &&
+        (educationHeaderHasDegree(current.headerLines) || current.headerLines.length >= 3);
+      const looksLikeNewSchool =
+        complete &&
+        !isDegreeLikeLine(line) &&
+        !isDateOnlyLine(line) &&
+        !isEducationLabeledLine(withoutBullet);
+      if (looksLikeNewSchool) {
+        current = { headerLines: [line], bullets: [] };
+        entries.push(current);
+      } else {
+        current.headerLines.push(line);
+      }
+      continue;
+    }
+
+    const startNew = !current || current.bullets.length > 0 || headerComplete(current.headerLines);
+    if (startNew || !current) {
+      current = { headerLines: [], bullets: [] };
+      entries.push(current);
+    }
+    current.headerLines.push(line);
   }
 
   return entries.filter((e) => e.headerLines.length > 0 || e.bullets.length > 0);
+}
+
+/**
+ * Fold education entries whose "school" is actually an Honors:/Leadership:/
+ * Membership: line into the preceding real school (repairs older parses).
+ */
+export function foldEducationLabeledPhantoms(education: EducationEntry[]): EducationEntry[] {
+  const result: EducationEntry[] = [];
+  for (const ed of education) {
+    const schoolClean = (ed.school || "").replace(BULLET_PREFIX_RE, "").trim();
+    if (isEducationLabeledLine(schoolClean) && result.length > 0) {
+      const prev = result[result.length - 1];
+      const extras = [schoolClean, ...(ed.bullets ?? []).map((b) => b.trim()).filter(Boolean)];
+      prev.bullets = [...(prev.bullets ?? []), ...extras];
+      continue;
+    }
+    // Degree line sometimes captured a labeled detail — move it to bullets.
+    const degreeClean = (ed.degree || "").replace(BULLET_PREFIX_RE, "").trim();
+    if (isEducationLabeledLine(degreeClean)) {
+      result.push({
+        ...ed,
+        degree: "",
+        bullets: [degreeClean, ...(ed.bullets ?? [])],
+      });
+      continue;
+    }
+    result.push({ ...ed, bullets: [...(ed.bullets ?? [])] });
+  }
+  return result;
 }
 
 function stripDateRange(text: string): { text: string; startDate: string; endDate: string } {
@@ -358,6 +455,15 @@ function parseEducationEntry(headerLines: string[], bullets: string[]): Educatio
 const SKILL_LABEL_LINE_RE =
   /^(certifications?|licenses?|languages?|software|tools?|technologies|technical skills?|skills?|volunteer(?:ing)?|memberships?|activities|interests?|hobbies)\s*:\s*(.*)$/i;
 
+/** Split "Certifications: A; Languages: B; Software: C, D" into labeled rows. */
+function expandMultiLabelSkillLines(line: string): string[] {
+  const parts = line
+    .split(/(?=\b(?:Certifications?|Licenses?|Languages?|Software|Tools?|Technologies|Skills?|Volunteer(?:ing)?|Memberships?|Interests?|Hobbies)\s*:)/i)
+    .map((p) => p.trim().replace(/^[;|,\-–—]+\s*/, ""))
+    .filter(Boolean);
+  return parts.length > 0 ? parts : [line];
+}
+
 function parseSkillsSection(lines: string[]): SkillsAndInterests {
   const certifications: string[] = [];
   const languages: string[] = [];
@@ -366,41 +472,47 @@ function parseSkillsSection(lines: string[]): SkillsAndInterests {
   const interests: string[] = [];
 
   for (const rawLine of lines) {
-    const line = rawLine.replace(BULLET_PREFIX_RE, "").trim();
-    if (!line || SECTION_GUIDANCE_RE.test(line)) continue;
+    const base = rawLine.replace(BULLET_PREFIX_RE, "").trim();
+    if (!base || SECTION_GUIDANCE_RE.test(base)) continue;
 
-    const labelMatch = line.match(/^([A-Za-z][A-Za-z &/]*):\s*(.*)$/);
-    const label = labelMatch?.[1]?.toLowerCase() ?? "";
-    const body = labelMatch ? labelMatch[2] : line;
-    const items = body
-      .split(/[,;•|]/)
-      .map((s) => s.trim())
-      .filter((s) => s && !/^[\.…]{2,}$/.test(s) && !SECTION_GUIDANCE_RE.test(s));
-    if (!items.length) continue;
+    for (const line of expandMultiLabelSkillLines(base)) {
+      if (!line || SECTION_GUIDANCE_RE.test(line)) continue;
 
-    if (label.includes("language") || (!labelMatch && /language/i.test(line))) {
-      languages.push(...items);
-    } else if (label.includes("interest") || label.includes("hobbies") || (!labelMatch && /interests?:/i.test(line))) {
-      interests.push(...items);
-    } else if (label.includes("certif") || label.includes("license")) {
-      certifications.push(...items);
-    } else if (
-      label.includes("software") ||
-      label.includes("tool") ||
-      label.includes("technolog") ||
-      label.includes("skill")
-    ) {
-      software.push(...items);
-    } else if (
-      label.includes("volunteer") ||
-      label.includes("activit") ||
-      label.includes("leadership") ||
-      label.includes("membership")
-    ) {
-      volunteer.push(...items);
-    } else {
-      // Unlabeled Additional lines default to software/skills-like items.
-      software.push(...items);
+      const labelMatch = line.match(/^([A-Za-z][A-Za-z &/]*):\s*(.*)$/);
+      const label = labelMatch?.[1]?.toLowerCase() ?? "";
+      const body = labelMatch ? labelMatch[2] : line;
+      // Don't split volunteer/membership prose on commas as aggressively when the
+      // body looks like a short phrase with "and"; still split certs/software lists.
+      const items = body
+        .split(/[,;•|]/)
+        .map((s) => s.trim())
+        .filter((s) => s && !/^[\.…]{2,}$/.test(s) && !SECTION_GUIDANCE_RE.test(s));
+      if (!items.length) continue;
+
+      if (label.includes("language") || (!labelMatch && /language/i.test(line))) {
+        languages.push(...items);
+      } else if (label.includes("interest") || label.includes("hobbies") || (!labelMatch && /interests?:/i.test(line))) {
+        interests.push(...items);
+      } else if (label.includes("certif") || label.includes("license")) {
+        certifications.push(...items);
+      } else if (
+        label.includes("software") ||
+        label.includes("tool") ||
+        label.includes("technolog") ||
+        label.includes("skill")
+      ) {
+        software.push(...items);
+      } else if (
+        label.includes("volunteer") ||
+        label.includes("activit") ||
+        label.includes("leadership") ||
+        label.includes("membership")
+      ) {
+        volunteer.push(...items);
+      } else {
+        // Unlabeled Additional lines default to software/skills-like items.
+        software.push(...items);
+      }
     }
   }
 
@@ -504,6 +616,22 @@ export function recoverAdditionalFromExperience(resume: ResumeData): ResumeData 
   };
 }
 
+/** Repair education entries on already-parsed drafts (phantom Honors schools, etc.). */
+export function recoverEducationLabeledBullets(resume: ResumeData): ResumeData {
+  const folded = foldEducationLabeledPhantoms(resume.education);
+  if (
+    folded.length === resume.education.length &&
+    folded.every(
+      (ed, i) =>
+        ed.school === resume.education[i].school &&
+        JSON.stringify(ed.bullets ?? []) === JSON.stringify(resume.education[i].bullets ?? [])
+    )
+  ) {
+    return resume;
+  }
+  return { ...resume, education: folded };
+}
+
 export function extractResumeHeuristically(rawText: string): ResumeData {
   const lines = rawText.split(/\r?\n/).map((l) => l.replace(/\s+$/, ""));
   const { preamble, sections } = splitIntoSections(lines);
@@ -519,9 +647,14 @@ export function extractResumeHeuristically(rawText: string): ResumeData {
       continue;
     }
 
-    const entries = groupIntoEntries(section.lines);
+    const entries = groupIntoEntries(section.lines, {
+      educationMode: section.key === "education",
+    });
     if (section.key === "education") {
       for (const e of entries) education.push(parseEducationEntry(e.headerLines, e.bullets));
+      const folded = foldEducationLabeledPhantoms(education);
+      education.length = 0;
+      education.push(...folded);
     } else if (section.key === "experience") {
       for (const e of entries) experience.push(parseExperienceEntry(e.headerLines, e.bullets));
     } else if (section.key === "leadership") {

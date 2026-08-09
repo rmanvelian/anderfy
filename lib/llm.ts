@@ -3,9 +3,10 @@ import { MAX_BULLET_CHARS } from "@/lib/bulletLength";
 import { extractResumeHeuristically, tailorResumeHeuristically } from "@/lib/heuristicResume";
 import { newId } from "@/lib/id";
 import { chatStructured, isLlmConfigured } from "@/lib/llmClient";
+import { reorderKeepAllAdditional } from "@/lib/additionalSection";
 import { finalizeResumeAgainstSource } from "@/lib/finalizeResume";
 import { fitResumeToOnePage } from "@/lib/pageFit";
-import { mergeOrderedEntries, sanitizeStringList } from "@/lib/tailorMerge";
+import { mergeOrderedEntries } from "@/lib/tailorMerge";
 import type { TailorOptions } from "@/lib/tailorOptions";
 import type { JobPosting, ResumeData } from "@/types/resume";
 
@@ -115,15 +116,51 @@ export async function extractResumeFromText(rawText: string): Promise<ResumeData
     resumeSchema
   );
   const withIds = attachIds(parsed);
+  const heuristic = extractResumeHeuristically(rawText);
   // If the model omitted Additional/skills, fill from the heuristic parser so the
   // Anderson Additional section is not lost.
-  if (skillsCount(withIds.skillsAndInterests) === 0) {
-    const heuristic = extractResumeHeuristically(rawText);
-    if (skillsCount(heuristic.skillsAndInterests) > 0) {
-      withIds.skillsAndInterests = heuristic.skillsAndInterests;
-    }
+  if (skillsCount(withIds.skillsAndInterests) === 0 && skillsCount(heuristic.skillsAndInterests) > 0) {
+    withIds.skillsAndInterests = heuristic.skillsAndInterests;
+  } else if (skillsCount(heuristic.skillsAndInterests) > 0) {
+    withIds.skillsAndInterests = {
+      certifications: reorderKeepAllAdditional(
+        heuristic.skillsAndInterests.certifications,
+        withIds.skillsAndInterests.certifications
+      ),
+      languages: reorderKeepAllAdditional(
+        heuristic.skillsAndInterests.languages,
+        withIds.skillsAndInterests.languages
+      ),
+      software: reorderKeepAllAdditional(
+        heuristic.skillsAndInterests.software,
+        withIds.skillsAndInterests.software
+      ),
+      volunteer: reorderKeepAllAdditional(
+        heuristic.skillsAndInterests.volunteer,
+        withIds.skillsAndInterests.volunteer
+      ),
+      interests: reorderKeepAllAdditional(
+        heuristic.skillsAndInterests.interests,
+        withIds.skillsAndInterests.interests
+      ),
+    };
   }
-  return fitResumeToOnePage(withIds);
+  // Prefer heuristic education bullets when the model left a school empty but
+  // Honors/Leadership/Membership were present in the source text.
+  return finalizeResumeAgainstSource(withIds, {
+    ...withIds,
+    education: withIds.education.map((ed) => {
+      if ((ed.bullets?.length ?? 0) > 0) return ed;
+      const match = heuristic.education.find(
+        (h) => h.school.trim().toLowerCase() === ed.school.trim().toLowerCase()
+      );
+      if (match && (match.bullets?.length ?? 0) > 0) {
+        return { ...ed, bullets: [...match.bullets!] };
+      }
+      return ed;
+    }),
+    skillsAndInterests: withIds.skillsAndInterests,
+  });
 }
 
 // --- Tailoring ---
@@ -168,8 +205,10 @@ Output JSON of this exact shape:
 
 Rules:
 - List ids in your desired display order (most relevant to this job posting first). You do not need to include every entry — any you omit will automatically be kept, unchanged, in their original position, so only include an entry if you're reordering it and/or rewriting its bullets.
-- Every value in "skillsAndInterests" must be copied verbatim (exact spelling) from the candidate's original skillsAndInterests — you may select a relevant subset and reorder them, but never add a new one. Do not drop entire Additional categories (certifications, languages, software, volunteer, interests) that the candidate already has — keep at least one item in each non-empty source category so the Additional section remains on the resume.
+- Every value in "skillsAndInterests" must be copied verbatim (exact spelling) from the candidate's original skillsAndInterests. You may reorder items for relevance, but keep ALL of them — do not omit certifications, languages, software, volunteer, or interests the candidate already listed.
+- For every education entry that already has Honors:/Leadership:/Membership: (or GPA:) bullets, keep those labeled bullets (you may lightly rephrase the text after the label, but do not drop the labels or invent new ones).
 - Keep each bullet no longer than roughly two lines (about ${MAX_BULLET_CHARS} characters) when rendered on the resume — ideally one line — starting with a strong past-tense action verb, echoing job-posting language only where it truthfully matches something the candidate already did.
+- Fill the one-page Anderson layout: prefer keeping education labeled bullets and the full Additional section; trim only by slightly shortening experience bullets when necessary.
 - EXPERIENCE BULLET COUNTS (hard requirements):
   1. Never leave an experience entry with zero bullets if that entry had bullets in the source resume — include at least one rewritten (or original) bullet for every such role.
   2. Across all experience entries that have bullets, the number of bullets per entry may differ by at most ONE. Examples: 4/3/3 is OK; 5/4/3 is NOT (5−3=2). Prefer giving the most recent / most relevant role the higher count when you need the +1.
@@ -208,23 +247,23 @@ function buildTailoredResume(
     education: mergeOrderedEntries(resume.education, parsed.education),
     experience: mergeOrderedEntries(resume.experience, parsed.experience),
     skillsAndInterests: {
-      certifications: sanitizeStringList(
+      certifications: reorderKeepAllAdditional(
         resume.skillsAndInterests.certifications,
         parsed.skillsAndInterests?.certifications
       ),
-      languages: sanitizeStringList(
+      languages: reorderKeepAllAdditional(
         resume.skillsAndInterests.languages,
         parsed.skillsAndInterests?.languages
       ),
-      software: sanitizeStringList(
+      software: reorderKeepAllAdditional(
         resume.skillsAndInterests.software,
         parsed.skillsAndInterests?.software
       ),
-      volunteer: sanitizeStringList(
+      volunteer: reorderKeepAllAdditional(
         resume.skillsAndInterests.volunteer,
         parsed.skillsAndInterests?.volunteer
       ),
-      interests: sanitizeStringList(
+      interests: reorderKeepAllAdditional(
         resume.skillsAndInterests.interests,
         parsed.skillsAndInterests?.interests
       ),
