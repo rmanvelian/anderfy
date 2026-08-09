@@ -92,7 +92,7 @@ export default function Home() {
       >
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-16 sm:px-6">
           <div className="max-w-2xl">
-            <h2 className="text-2xl text-ucla-blue sm:text-3xl">Anderfy Your Resume</h2>
+            <h2 className="text-2xl text-ucla-blue sm:text-3xl">Anderfy Your Resume.</h2>
             <p className="mt-2 text-muted-foreground">
               Upload or paste your background, add a job posting, then review and export.
             </p>
