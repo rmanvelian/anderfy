@@ -49,18 +49,76 @@ const SECTION_ALIASES: Record<string, SectionKey> = {
   skills: "skills",
   "skills & interests": "skills",
   "skills and interests": "skills",
+  "skills/interests": "skills",
+  "skills & abilities": "skills",
+  "skills and abilities": "skills",
+  "technical skills": "skills",
+  "professional skills": "skills",
+  "core competencies": "skills",
+  competencies: "skills",
   additional: "skills",
   "additional information": "skills",
+  "additional skills": "skills",
+  // Category labels alone may start a skills block (exact match only — never as a
+  // prefix, or "Software Engineering Intern" would be misread as Additional).
   certifications: "skills",
   languages: "skills",
   software: "skills",
   interests: "skills",
 };
 
-function detectSection(line: string): SectionKey | null {
-  const cleaned = line.trim().replace(/:$/, "").toLowerCase();
-  if (!cleaned || cleaned.length > 40) return null;
-  return SECTION_ALIASES[cleaned] ?? null;
+/** Longest aliases first so "skills and interests" wins over "skills". */
+const SECTION_ALIAS_LIST = Object.keys(SECTION_ALIASES).sort((a, b) => b.length - a.length);
+
+/**
+ * Aliases that may appear with trailing guidance or same-line content
+ * (e.g. Anderson "ADDITIONAL Try to limit your bullets to 3-4 areas").
+ * Short category words like "software" are excluded — exact match only.
+ */
+const PREFIX_OK_ALIASES = new Set(
+  SECTION_ALIAS_LIST.filter(
+    (alias) => !["certifications", "languages", "software", "interests", "volunteer"].includes(alias)
+  )
+);
+
+/** Instructional template fluff after a section header (Anderson DOCX, etc.). */
+const SECTION_GUIDANCE_RE =
+  /^(try to limit|limit your|optional|include|list your|add your|fill in|placeholder)\b/i;
+
+function detectSection(line: string): { key: SectionKey; remainder: string } | null {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+
+  // Strip a leading bullet so "• ADDITIONAL" / "• Experience" still match.
+  const withoutBullet = trimmed.replace(BULLET_PREFIX_RE, "").trim();
+  const cleaned = withoutBullet.replace(/:$/, "").toLowerCase();
+  if (!cleaned) return null;
+
+  const exact = SECTION_ALIASES[cleaned];
+  if (exact) return { key: exact, remainder: "" };
+
+  for (const alias of SECTION_ALIAS_LIST) {
+    if (!PREFIX_OK_ALIASES.has(alias)) continue;
+    if (cleaned.startsWith(`${alias} `) || cleaned.startsWith(`${alias}\t`)) {
+      // Preserve original casing/spacing for the remainder after the alias.
+      const aliasPattern = new RegExp(`^${alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[:\\s]+`, "i");
+      const remainder = withoutBullet.replace(aliasPattern, "").trim();
+      const key = SECTION_ALIASES[alias];
+      // Avoid treating bullet text like "Experience designing APIs…" as a new
+      // section. Allow trailing text only for Additional/skills (Anderson puts
+      // guidance on the ADDITIONAL line) or clear template guidance.
+      if (
+        remainder &&
+        key !== "skills" &&
+        !SECTION_GUIDANCE_RE.test(remainder)
+      ) {
+        continue;
+      }
+      return { key, remainder };
+    }
+  }
+
+  return null;
 }
 
 interface RawSection {
@@ -74,10 +132,19 @@ function splitIntoSections(lines: string[]): { preamble: string[]; sections: Raw
   let current: RawSection | null = null;
   for (const line of lines) {
     if (!line.trim()) continue;
-    const key = detectSection(line);
-    if (key) {
-      current = { key, lines: [] };
+    const detected = detectSection(line);
+    if (detected) {
+      current = { key: detected.key, lines: [] };
       sections.push(current);
+      // Keep non-guidance text that shared the header line
+      // (e.g. "ADDITIONAL Certifications: CFA, Series 63").
+      if (
+        detected.remainder &&
+        !SECTION_GUIDANCE_RE.test(detected.remainder) &&
+        !detectSection(detected.remainder)
+      ) {
+        current.lines.push(detected.remainder);
+      }
       continue;
     }
     if (current) current.lines.push(line);
@@ -288,6 +355,9 @@ function parseEducationEntry(headerLines: string[], bullets: string[]): Educatio
   return { id: newId(), school, location, degree, gradDate, bullets: eduBullets };
 }
 
+const SKILL_LABEL_LINE_RE =
+  /^(certifications?|licenses?|languages?|software|tools?|technologies|technical skills?|skills?|volunteer(?:ing)?|memberships?|activities|interests?|hobbies)\s*:\s*(.*)$/i;
+
 function parseSkillsSection(lines: string[]): SkillsAndInterests {
   const certifications: string[] = [];
   const languages: string[] = [];
@@ -295,14 +365,17 @@ function parseSkillsSection(lines: string[]): SkillsAndInterests {
   const volunteer: string[] = [];
   const interests: string[] = [];
 
-  for (const line of lines) {
+  for (const rawLine of lines) {
+    const line = rawLine.replace(BULLET_PREFIX_RE, "").trim();
+    if (!line || SECTION_GUIDANCE_RE.test(line)) continue;
+
     const labelMatch = line.match(/^([A-Za-z][A-Za-z &/]*):\s*(.*)$/);
     const label = labelMatch?.[1]?.toLowerCase() ?? "";
     const body = labelMatch ? labelMatch[2] : line;
     const items = body
-      .split(/[,;•]/)
+      .split(/[,;•|]/)
       .map((s) => s.trim())
-      .filter(Boolean);
+      .filter((s) => s && !/^[\.…]{2,}$/.test(s) && !SECTION_GUIDANCE_RE.test(s));
     if (!items.length) continue;
 
     if (label.includes("language") || (!labelMatch && /language/i.test(line))) {
@@ -318,7 +391,12 @@ function parseSkillsSection(lines: string[]): SkillsAndInterests {
       label.includes("skill")
     ) {
       software.push(...items);
-    } else if (label.includes("volunteer") || label.includes("activit") || label.includes("leadership")) {
+    } else if (
+      label.includes("volunteer") ||
+      label.includes("activit") ||
+      label.includes("leadership") ||
+      label.includes("membership")
+    ) {
       volunteer.push(...items);
     } else {
       // Unlabeled Additional lines default to software/skills-like items.
@@ -327,6 +405,67 @@ function parseSkillsSection(lines: string[]): SkillsAndInterests {
   }
 
   return { certifications, languages, software, volunteer, interests };
+}
+
+function skillsItemCount(skills: SkillsAndInterests): number {
+  return (
+    (skills.certifications?.length ?? 0) +
+    (skills.languages?.length ?? 0) +
+    (skills.software?.length ?? 0) +
+    (skills.volunteer?.length ?? 0) +
+    (skills.interests?.length ?? 0)
+  );
+}
+
+/**
+ * Pull Anderson-style Additional rows that were absorbed into Experience
+ * (common when the ADDITIONAL header was missed or PDF text collapsed).
+ */
+function salvageSkillsFromExperience(experience: ExperienceEntry[]): {
+  experience: ExperienceEntry[];
+  skills: SkillsAndInterests;
+} {
+  const skillLines: string[] = [];
+  const kept: ExperienceEntry[] = [];
+
+  for (const entry of experience) {
+    const company = entry.company.replace(BULLET_PREFIX_RE, "").trim();
+    const title = entry.title.replace(BULLET_PREFIX_RE, "").trim();
+    const bareSkillLabel = /^(certifications?|languages?|software|volunteer|interests?)$/i;
+    const companyIsSkill = SKILL_LABEL_LINE_RE.test(company) || bareSkillLabel.test(company);
+    const titleIsSkill = SKILL_LABEL_LINE_RE.test(title) || bareSkillLabel.test(title);
+
+    if (companyIsSkill || titleIsSkill) {
+      const labelSource = companyIsSkill ? company : title;
+      if (SKILL_LABEL_LINE_RE.test(labelSource)) {
+        skillLines.push(labelSource);
+      } else {
+        const values = entry.bullets
+          .map((b) => b.replace(BULLET_PREFIX_RE, "").trim())
+          .filter((b) => b && !SKILL_LABEL_LINE_RE.test(b));
+        if (values.length) skillLines.push(`${labelSource}: ${values.join(", ")}`);
+      }
+      for (const b of entry.bullets) {
+        const cleaned = b.replace(BULLET_PREFIX_RE, "").trim();
+        if (SKILL_LABEL_LINE_RE.test(cleaned)) skillLines.push(cleaned);
+      }
+      continue;
+    }
+
+    const remainingBullets: string[] = [];
+    for (const b of entry.bullets) {
+      const cleaned = b.replace(BULLET_PREFIX_RE, "").trim();
+      if (SKILL_LABEL_LINE_RE.test(cleaned)) skillLines.push(cleaned);
+      else remainingBullets.push(b);
+    }
+
+    // Drop empty phantom "jobs" created from skill labels.
+    if (!entry.company && !entry.title && remainingBullets.length === 0) continue;
+
+    kept.push({ ...entry, bullets: remainingBullets });
+  }
+
+  return { experience: kept, skills: parseSkillsSection(skillLines) };
 }
 
 function emptySkills(): SkillsAndInterests {
@@ -346,6 +485,22 @@ function mergeSkills(a: SkillsAndInterests, b: SkillsAndInterests): SkillsAndInt
     software: [...(a.software ?? []), ...(b.software ?? [])],
     volunteer: [...(a.volunteer ?? []), ...(b.volunteer ?? [])],
     interests: [...(a.interests ?? []), ...(b.interests ?? [])],
+  };
+}
+
+/**
+ * If Additional is empty but Experience contains mis-filed skill rows
+ * (Certifications:/Languages:/…), move them into skillsAndInterests. Safe to
+ * run on already-parsed drafts.
+ */
+export function recoverAdditionalFromExperience(resume: ResumeData): ResumeData {
+  if (skillsItemCount(resume.skillsAndInterests) > 0) return resume;
+  const { experience, skills } = salvageSkillsFromExperience(resume.experience);
+  if (skillsItemCount(skills) === 0) return resume;
+  return {
+    ...resume,
+    experience,
+    skillsAndInterests: mergeSkills(resume.skillsAndInterests, skills),
   };
 }
 
@@ -379,13 +534,24 @@ export function extractResumeHeuristically(rawText: string): ResumeData {
     }
   }
 
-  const hasSkills =
-    (skillsAndInterests.certifications?.length ?? 0) +
-      (skillsAndInterests.languages?.length ?? 0) +
-      (skillsAndInterests.software?.length ?? 0) +
-      (skillsAndInterests.volunteer?.length ?? 0) +
-      (skillsAndInterests.interests?.length ?? 0) >
-    0;
+  // Rescue Additional rows that landed in Experience when the header was missed.
+  const salvaged = salvageSkillsFromExperience(experience);
+  experience.length = 0;
+  experience.push(...salvaged.experience);
+  skillsAndInterests = mergeSkills(skillsAndInterests, salvaged.skills);
+
+  // Last resort: scan the raw text for labeled Additional rows even if no skills
+  // section header was recognized (common with messy PDF extraction).
+  if (skillsItemCount(skillsAndInterests) === 0) {
+    const labeled = lines
+      .map((l) => l.replace(BULLET_PREFIX_RE, "").trim())
+      .filter((l) => SKILL_LABEL_LINE_RE.test(l));
+    if (labeled.length) {
+      skillsAndInterests = mergeSkills(skillsAndInterests, parseSkillsSection(labeled));
+    }
+  }
+
+  const hasSkills = skillsItemCount(skillsAndInterests) > 0;
 
   // No recognizable section headers at all (e.g. a short pasted paragraph) — keep the
   // person's actual text as a single unlabeled experience entry rather than dropping it.

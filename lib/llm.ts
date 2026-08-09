@@ -84,8 +84,26 @@ Rules:
 - "degree" should read like "M.B.A., Full-Time Program" or "B.A., Economics" (degree + program/major together in one string).
 - Split multi-line bullet fragments into separate strings in the "bullets" array.
 - For education bullets, use labeled bullets in the form "Honors: ...", "Leadership: ...", or "Membership: ..." when that information is present (e.g. honors/awards, extracurricular leadership roles, club memberships) — this mirrors the Anderson resume format's convention.
+- ALWAYS populate "skillsAndInterests" from any Additional / Skills / Skills & Interests section (Anderson resumes label this ADDITIONAL). Map labeled rows into the matching arrays:
+  - "Certifications: ..." → certifications
+  - "Languages: ..." → languages
+  - "Software: ..." / "Skills: ..." / "Tools: ..." → software
+  - "Volunteer: ..." / "Memberships: ..." → volunteer
+  - "Interests: ..." → interests
+  Split comma/semicolon-separated values into individual array items. Do not leave skillsAndInterests empty when such rows exist in the source.
 - Volunteering/leadership activities that are NOT part of a person's formal education should go in "skillsAndInterests.volunteer" instead.
 - If a field is unknown, use an empty string ("") or empty array ([]) rather than omitting the key.`;
+
+function skillsCount(skills: ResumeData["skillsAndInterests"] | undefined): number {
+  if (!skills) return 0;
+  return (
+    (skills.certifications?.length ?? 0) +
+    (skills.languages?.length ?? 0) +
+    (skills.software?.length ?? 0) +
+    (skills.volunteer?.length ?? 0) +
+    (skills.interests?.length ?? 0)
+  );
+}
 
 export async function extractResumeFromText(rawText: string): Promise<ResumeData> {
   if (isMockMode()) {
@@ -96,7 +114,16 @@ export async function extractResumeFromText(rawText: string): Promise<ResumeData
     `Raw resume text:\n"""\n${rawText.slice(0, 20000)}\n"""`,
     resumeSchema
   );
-  return fitResumeToOnePage(attachIds(parsed));
+  const withIds = attachIds(parsed);
+  // If the model omitted Additional/skills, fill from the heuristic parser so the
+  // Anderson Additional section is not lost.
+  if (skillsCount(withIds.skillsAndInterests) === 0) {
+    const heuristic = extractResumeHeuristically(rawText);
+    if (skillsCount(heuristic.skillsAndInterests) > 0) {
+      withIds.skillsAndInterests = heuristic.skillsAndInterests;
+    }
+  }
+  return fitResumeToOnePage(withIds);
 }
 
 // --- Tailoring ---
