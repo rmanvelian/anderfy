@@ -10,7 +10,6 @@ import { AdditionalEditor } from "@/components/resume/editor/AdditionalEditor";
 import { ContactFields } from "@/components/resume/editor/ContactFields";
 import { EducationEditor } from "@/components/resume/editor/EducationEditor";
 import { ExperienceEditor } from "@/components/resume/editor/ExperienceEditor";
-import { LeadershipEditor } from "@/components/resume/editor/LeadershipEditor";
 import type { ResumeData } from "@/types/resume";
 
 export function ResumeEditor({
@@ -52,18 +51,10 @@ export function ResumeEditor({
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="leadership">
-        <AccordionTrigger className="text-base font-semibold">Leadership &amp; activities</AccordionTrigger>
-        <AccordionContent>
-          <LeadershipEditor
-            entries={resume.leadership}
-            onChange={(leadership) => onChange({ ...resume, leadership })}
-          />
-        </AccordionContent>
-      </AccordionItem>
-
       <AccordionItem value="additional">
-        <AccordionTrigger className="text-base font-semibold">Additional (skills, languages, interests)</AccordionTrigger>
+        <AccordionTrigger className="text-base font-semibold">
+          Additional (certifications, languages, software, volunteer, interests)
+        </AccordionTrigger>
         <AccordionContent>
           <AdditionalEditor
             value={resume.skillsAndInterests}

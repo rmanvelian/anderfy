@@ -1,95 +1,90 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { splitBulletLabel } from "@/lib/bulletLabel";
 import type { ResumeData } from "@/types/resume";
 
-// A best-effort recreation of the well-documented UCLA Anderson / Parker CMC
-// MBA resume conventions: one page, conservative business formatting, serif
-// font, bold small-caps section headers with a rule, right-aligned
-// dates/locations, and STAR-style bullets. The real Anderson Word template is
-// distributed privately to admitted students and isn't publicly available,
-// so this is an approximation based on Anderson's published guidance.
+// Modeled directly on UCLA Anderson's official Parker CMC resume template
+// (1st-Year Resume Template, 2026): Letter page, 0.5in margins, Times New
+// Roman, bold-caps section headers with a thin rule, and a single blank-line
+// worth of spacing between the header/sections/entries.
+
+const GAP = 9; // one "blank line" of vertical spacing, matching the template's use of blank paragraphs
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 34,
-    paddingBottom: 34,
-    paddingHorizontal: 46,
+    paddingTop: 36,
+    paddingBottom: 36,
+    paddingHorizontal: 36,
     fontFamily: "Times-Roman",
-    fontSize: 9.5,
-    color: "#111111",
+    fontSize: 11,
+    color: "#000000",
+  },
+  header: {
+    marginBottom: GAP,
   },
   name: {
     fontFamily: "Times-Bold",
     fontSize: 16,
     textAlign: "center",
-    letterSpacing: 0.5,
   },
   contactLine: {
     textAlign: "center",
-    fontSize: 9,
-    marginTop: 3,
-    color: "#222222",
-  },
-  headerRule: {
-    borderBottomWidth: 1.2,
-    borderBottomColor: "#111111",
-    marginTop: 6,
-    marginBottom: 8,
+    fontSize: 11,
+    marginTop: 2,
   },
   section: {
-    marginBottom: 8,
+    marginBottom: GAP,
   },
   sectionTitle: {
     fontFamily: "Times-Bold",
-    fontSize: 10.5,
+    fontSize: 12,
     textTransform: "uppercase",
-    letterSpacing: 0.8,
   },
   sectionRule: {
     borderBottomWidth: 0.75,
-    borderBottomColor: "#111111",
-    marginTop: 2,
+    borderBottomColor: "#000000",
+    marginTop: 1,
     marginBottom: 5,
   },
   entry: {
-    marginBottom: 6,
+    marginBottom: GAP,
   },
   rowBetween: {
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  bold: {
+  entryName: {
     fontFamily: "Times-Bold",
+    fontSize: 12,
+    textTransform: "uppercase",
+  },
+  entryLocation: {
+    fontSize: 11,
+  },
+  boldItalic: {
+    fontFamily: "Times-BoldItalic",
+    fontSize: 11,
   },
   italic: {
     fontFamily: "Times-Italic",
-    fontSize: 9.5,
+    fontSize: 11,
+  },
+  plain: {
+    fontFamily: "Times-Roman",
+    fontSize: 11,
   },
   bulletRow: {
     flexDirection: "row",
     marginTop: 2,
-    paddingLeft: 2,
+    paddingLeft: 4,
   },
   bulletMark: {
-    width: 10,
-    fontSize: 9.5,
+    width: 12,
+    fontSize: 11,
   },
   bulletText: {
     flex: 1,
-    fontSize: 9.5,
-    lineHeight: 1.28,
-  },
-  additionalRow: {
-    flexDirection: "row",
-    marginBottom: 2,
-  },
-  additionalLabel: {
-    fontFamily: "Times-Bold",
-    fontSize: 9.5,
-    width: 78,
-  },
-  additionalValue: {
-    fontSize: 9.5,
-    flex: 1,
+    fontSize: 11,
+    lineHeight: 1.2,
   },
 });
 
@@ -102,34 +97,45 @@ function SectionHeading({ children }: { children: string }) {
   );
 }
 
+function BulletLine({ bullet }: { bullet: string }) {
+  const { label, rest } = splitBulletLabel(bullet);
+  return (
+    <View style={styles.bulletRow}>
+      <Text style={styles.bulletMark}>•</Text>
+      <Text style={styles.bulletText}>
+        {label ? <Text style={styles.italic}>{label} </Text> : null}
+        {rest}
+      </Text>
+    </View>
+  );
+}
+
 function Bullets({ items }: { items?: string[] }) {
-  if (!items || items.length === 0) return null;
+  const filtered = (items || []).filter((b) => b && b.trim());
+  if (filtered.length === 0) return null;
   return (
     <View>
-      {items
-        .filter((b) => b && b.trim())
-        .map((bullet, i) => (
-          <View style={styles.bulletRow} key={i}>
-            <Text style={styles.bulletMark}>•</Text>
-            <Text style={styles.bulletText}>{bullet}</Text>
-          </View>
-        ))}
+      {filtered.map((bullet, i) => (
+        <BulletLine bullet={bullet} key={i} />
+      ))}
     </View>
   );
 }
 
 function contactParts(resume: ResumeData): string[] {
   const c = resume.contact;
-  return [c.location, c.phone, c.email, c.linkedin].filter(
-    (v): v is string => !!v && v.trim().length > 0
-  );
+  return [c.phone, c.email, c.linkedin].filter((v): v is string => !!v && v.trim().length > 0);
 }
 
 export function AndersonResumeDocument({ resume }: { resume: ResumeData }) {
-  const hasLeadership = resume.leadership?.some((l) => l.org || l.role);
   const s = resume.skillsAndInterests;
-  const hasAdditional =
-    !!s && ((s.skills?.length ?? 0) > 0 || (s.languages?.length ?? 0) > 0 || (s.interests?.length ?? 0) > 0);
+  const additional: { label: string; values: string[] }[] = [
+    { label: "Certifications", values: s?.certifications ?? [] },
+    { label: "Languages", values: s?.languages ?? [] },
+    { label: "Software", values: s?.software ?? [] },
+    { label: "Volunteer", values: s?.volunteer ?? [] },
+    { label: "Interests", values: s?.interests ?? [] },
+  ].filter((row) => row.values.length > 0);
 
   return (
     <Document
@@ -137,11 +143,12 @@ export function AndersonResumeDocument({ resume }: { resume: ResumeData }) {
       author={resume.contact.name || undefined}
     >
       <Page size="LETTER" style={styles.page}>
-        <Text style={styles.name}>{resume.contact.name || "Your Name"}</Text>
-        {contactParts(resume).length > 0 && (
-          <Text style={styles.contactLine}>{contactParts(resume).join("   |   ")}</Text>
-        )}
-        <View style={styles.headerRule} />
+        <View style={styles.header}>
+          <Text style={styles.name}>{resume.contact.name || "Your Name"}</Text>
+          {contactParts(resume).length > 0 && (
+            <Text style={styles.contactLine}>{contactParts(resume).join("  |  ")}</Text>
+          )}
+        </View>
 
         {resume.education.length > 0 && (
           <View style={styles.section}>
@@ -149,16 +156,12 @@ export function AndersonResumeDocument({ resume }: { resume: ResumeData }) {
             {resume.education.map((ed) => (
               <View style={styles.entry} key={ed.id}>
                 <View style={styles.rowBetween}>
-                  <Text style={styles.bold}>{ed.school}</Text>
-                  <Text>{ed.location}</Text>
+                  <Text style={styles.entryName}>{ed.school}</Text>
+                  <Text style={styles.entryLocation}>{ed.location}</Text>
                 </View>
                 <View style={styles.rowBetween}>
-                  <Text style={styles.italic}>
-                    {[ed.degree, ed.field].filter(Boolean).join(" in ")}
-                    {ed.gpa ? `, GPA: ${ed.gpa}` : ""}
-                    {ed.honors ? ` — ${ed.honors}` : ""}
-                  </Text>
-                  <Text style={styles.italic}>{ed.gradDate}</Text>
+                  <Text style={styles.boldItalic}>{ed.degree}</Text>
+                  <Text style={styles.plain}>{ed.gradDate}</Text>
                 </View>
                 <Bullets items={ed.bullets} />
               </View>
@@ -172,14 +175,14 @@ export function AndersonResumeDocument({ resume }: { resume: ResumeData }) {
             {resume.experience.map((ex) => (
               <View style={styles.entry} key={ex.id}>
                 <View style={styles.rowBetween}>
-                  <Text style={styles.bold}>{ex.company}</Text>
-                  <Text>{ex.location}</Text>
+                  <Text style={styles.entryName}>{ex.company}</Text>
+                  <Text style={styles.entryLocation}>{ex.location}</Text>
                 </View>
                 <View style={styles.rowBetween}>
-                  <Text style={styles.italic}>{ex.title}</Text>
+                  <Text style={styles.boldItalic}>{ex.title}</Text>
                   <Text style={styles.italic}>
                     {ex.startDate}
-                    {ex.startDate || ex.endDate ? " – " : ""}
+                    {ex.startDate || ex.endDate ? " - " : ""}
                     {ex.endDate}
                   </Text>
                 </View>
@@ -189,46 +192,10 @@ export function AndersonResumeDocument({ resume }: { resume: ResumeData }) {
           </View>
         )}
 
-        {hasLeadership && (
-          <View style={styles.section}>
-            <SectionHeading>Leadership &amp; Activities</SectionHeading>
-            {resume.leadership.map((l) => (
-              <View style={styles.entry} key={l.id}>
-                <View style={styles.rowBetween}>
-                  <Text style={styles.bold}>{l.org}</Text>
-                  <Text>{l.location}</Text>
-                </View>
-                <View style={styles.rowBetween}>
-                  <Text style={styles.italic}>{l.role}</Text>
-                  <Text style={styles.italic}>{l.dates}</Text>
-                </View>
-                <Bullets items={l.bullets} />
-              </View>
-            ))}
-          </View>
-        )}
-
-        {hasAdditional && (
+        {additional.length > 0 && (
           <View style={styles.section}>
             <SectionHeading>Additional</SectionHeading>
-            {(s?.skills?.length ?? 0) > 0 && (
-              <View style={styles.additionalRow}>
-                <Text style={styles.additionalLabel}>Skills:</Text>
-                <Text style={styles.additionalValue}>{s!.skills!.join(", ")}</Text>
-              </View>
-            )}
-            {(s?.languages?.length ?? 0) > 0 && (
-              <View style={styles.additionalRow}>
-                <Text style={styles.additionalLabel}>Languages:</Text>
-                <Text style={styles.additionalValue}>{s!.languages!.join(", ")}</Text>
-              </View>
-            )}
-            {(s?.interests?.length ?? 0) > 0 && (
-              <View style={styles.additionalRow}>
-                <Text style={styles.additionalLabel}>Interests:</Text>
-                <Text style={styles.additionalValue}>{s!.interests!.join(", ")}</Text>
-              </View>
-            )}
+            <Bullets items={additional.map((row) => `${row.label}: ${row.values.join(", ")}`)} />
           </View>
         )}
       </Page>

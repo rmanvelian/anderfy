@@ -1,22 +1,22 @@
 // Canonical resume data shape shared across parsing, AI tailoring, editing, and export.
+// Mirrors the sections/fields used by the official Anderson (Parker CMC) resume template:
+// Header, Education, Experience, Additional.
 
 export interface ContactInfo {
   name: string;
   phone?: string;
   email?: string;
   linkedin?: string;
-  location?: string;
 }
 
 export interface EducationEntry {
   id: string;
   school: string;
   location?: string;
+  /** e.g. "M.B.A., Full-Time Program, Finance" or "B.A., Economics" */
   degree: string;
-  field?: string;
-  gpa?: string;
-  honors?: string;
   gradDate: string;
+  /** Freeform, e.g. "Honors: ...", "Leadership: ...", "Membership: ..." */
   bullets?: string[];
 }
 
@@ -30,18 +30,11 @@ export interface ExperienceEntry {
   bullets: string[];
 }
 
-export interface LeadershipEntry {
-  id: string;
-  org: string;
-  role: string;
-  location?: string;
-  dates?: string;
-  bullets?: string[];
-}
-
 export interface SkillsAndInterests {
-  skills?: string[];
+  certifications?: string[];
   languages?: string[];
+  software?: string[];
+  volunteer?: string[];
   interests?: string[];
 }
 
@@ -49,7 +42,6 @@ export interface ResumeData {
   contact: ContactInfo;
   education: EducationEntry[];
   experience: ExperienceEntry[];
-  leadership: LeadershipEntry[];
   skillsAndInterests: SkillsAndInterests;
 }
 
@@ -58,7 +50,6 @@ export function createEmptyResumeData(): ResumeData {
     contact: { name: "" },
     education: [],
     experience: [],
-    leadership: [],
     skillsAndInterests: {},
   };
 }
@@ -67,9 +58,4 @@ export interface JobPosting {
   title?: string;
   company?: string;
   rawText: string;
-}
-
-export interface TailorResult {
-  resume: ResumeData;
-  notes?: string[];
 }

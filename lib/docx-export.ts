@@ -7,73 +7,94 @@ import {
   TabStopType,
   TextRun,
 } from "docx";
+import { splitBulletLabel } from "@/lib/bulletLabel";
 import type { ResumeData } from "@/types/resume";
 
-// Generates an editable .docx that mirrors the AndersonResumeDocument PDF
-// layout (same font, section structure, and right-aligned dates/locations)
-// so users can hand-edit the tailored resume in Word if they want to.
+// Generates an editable .docx mirroring the official Anderson (Parker CMC)
+// resume template: Letter page, 0.5in margins, Times New Roman, bold-caps
+// section headers with a rule, and one blank-line of spacing between the
+// header/sections/entries.
 
 const FONT = "Times New Roman";
 const PAGE_WIDTH_TWIPS = 12240; // 8.5in
-const MARGIN_TWIPS = 900; // 0.625in
+const MARGIN_TWIPS = 720; // 0.5in
 const USABLE_WIDTH_TWIPS = PAGE_WIDTH_TWIPS - MARGIN_TWIPS * 2;
+const BODY_SIZE = 22; // 11pt, in half-points
+const NAME_SIZE = 32; // 16pt
+const HEADING_SIZE = 24; // 12pt
+const GAP_TWIPS = 180; // ~1 blank line at 11pt
 
 const ruleBorder = {
-  bottom: {
-    style: BorderStyle.SINGLE,
-    size: 6,
-    color: "111111",
-  },
+  bottom: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
 };
 
 function rightAlignedTabStop() {
   return [{ type: TabStopType.RIGHT, position: USABLE_WIDTH_TWIPS }];
 }
 
-function headerRule(): Paragraph {
-  return new Paragraph({ border: ruleBorder, spacing: { after: 160 } });
-}
-
 function sectionHeading(title: string): Paragraph {
   return new Paragraph({
     border: ruleBorder,
-    spacing: { before: 120, after: 80 },
+    spacing: { after: GAP_TWIPS },
+    children: [
+      new TextRun({ text: title.toUpperCase(), bold: true, font: FONT, size: HEADING_SIZE }),
+    ],
+  });
+}
+
+interface SideStyle {
+  bold?: boolean;
+  italics?: boolean;
+  uppercase?: boolean;
+  size?: number;
+}
+
+function twoColumnLine(left: string, leftStyle: SideStyle, right: string, rightStyle: SideStyle): Paragraph {
+  return new Paragraph({
+    tabStops: rightAlignedTabStop(),
     children: [
       new TextRun({
-        text: title.toUpperCase(),
-        bold: true,
+        text: leftStyle.uppercase ? (left || "").toUpperCase() : left || "",
         font: FONT,
-        size: 21,
-        allCaps: true,
+        size: leftStyle.size ?? BODY_SIZE,
+        bold: leftStyle.bold,
+        italics: leftStyle.italics,
+      }),
+      new TextRun({
+        text: right ? `\t${right}` : "",
+        font: FONT,
+        size: rightStyle.size ?? BODY_SIZE,
+        bold: rightStyle.bold,
+        italics: rightStyle.italics,
       }),
     ],
   });
 }
 
-function twoColumnLine(left: string, right: string, opts: { bold?: boolean; italics?: boolean } = {}) {
-  return new Paragraph({
-    tabStops: rightAlignedTabStop(),
-    spacing: { after: 20 },
-    children: [
-      new TextRun({ text: left || "", font: FONT, size: 19, bold: opts.bold, italics: opts.italics }),
-      new TextRun({ text: right ? `\t${right}` : "", font: FONT, size: 19, italics: opts.italics }),
-    ],
-  });
-}
-
-function bulletParagraph(text: string): Paragraph {
+function bulletParagraph(text: string, isLastInEntry: boolean): Paragraph {
+  const { label, rest } = splitBulletLabel(text);
+  const runs: TextRun[] = [new TextRun({ text: "•  ", font: FONT, size: BODY_SIZE })];
+  if (label) {
+    runs.push(new TextRun({ text: `${label} `, font: FONT, size: BODY_SIZE, italics: true }));
+    runs.push(new TextRun({ text: rest, font: FONT, size: BODY_SIZE }));
+  } else {
+    runs.push(new TextRun({ text, font: FONT, size: BODY_SIZE }));
+  }
   return new Paragraph({
     indent: { left: 260, hanging: 260 },
-    spacing: { after: 20 },
-    children: [
-      new TextRun({ text: "•  ", font: FONT, size: 19 }),
-      new TextRun({ text, font: FONT, size: 19 }),
-    ],
+    spacing: { after: isLastInEntry ? GAP_TWIPS : 0 },
+    children: runs,
   });
 }
 
-function bullets(items?: string[]): Paragraph[] {
-  return (items || []).filter((b) => b && b.trim()).map(bulletParagraph);
+function bullets(items: string[] | undefined, fallbackGapIfEmpty: boolean): Paragraph[] {
+  const filtered = (items || []).filter((b) => b && b.trim());
+  if (filtered.length === 0) {
+    return fallbackGapIfEmpty
+      ? [new Paragraph({ spacing: { after: GAP_TWIPS }, children: [] })]
+      : [];
+  }
+  return filtered.map((b, i) => bulletParagraph(b, i === filtered.length - 1));
 }
 
 export async function buildResumeDocx(resume: ResumeData): Promise<Buffer> {
@@ -83,91 +104,67 @@ export async function buildResumeDocx(resume: ResumeData): Promise<Buffer> {
     new Paragraph({
       alignment: AlignmentType.CENTER,
       children: [
-        new TextRun({
-          text: resume.contact.name || "Your Name",
-          bold: true,
-          font: FONT,
-          size: 32,
-        }),
+        new TextRun({ text: resume.contact.name || "Your Name", bold: true, font: FONT, size: NAME_SIZE }),
       ],
     })
   );
 
-  const contactParts = [
-    resume.contact.location,
-    resume.contact.phone,
-    resume.contact.email,
-    resume.contact.linkedin,
-  ].filter((v): v is string => !!v && v.trim().length > 0);
+  const contactParts = [resume.contact.phone, resume.contact.email, resume.contact.linkedin].filter(
+    (v): v is string => !!v && v.trim().length > 0
+  );
 
   if (contactParts.length > 0) {
     children.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { after: 60 },
-        children: [
-          new TextRun({ text: contactParts.join("   |   "), font: FONT, size: 18 }),
-        ],
+        spacing: { after: GAP_TWIPS },
+        children: [new TextRun({ text: contactParts.join("  |  "), font: FONT, size: BODY_SIZE })],
       })
     );
   }
 
-  children.push(headerRule());
-
   if (resume.education.length > 0) {
     children.push(sectionHeading("Education"));
     for (const ed of resume.education) {
-      children.push(twoColumnLine(ed.school, ed.location || "", { bold: true }));
-      const degreeLine = [ed.degree, ed.field].filter(Boolean).join(" in ");
-      const detail = [degreeLine, ed.gpa ? `GPA: ${ed.gpa}` : "", ed.honors]
-        .filter(Boolean)
-        .join(" — ");
-      children.push(twoColumnLine(detail, ed.gradDate || "", { italics: true }));
-      children.push(...bullets(ed.bullets));
+      children.push(
+        twoColumnLine(ed.school, { bold: true, uppercase: true, size: HEADING_SIZE }, ed.location || "", {})
+      );
+      children.push(twoColumnLine(ed.degree, { bold: true, italics: true }, ed.gradDate || "", {}));
+      children.push(...bullets(ed.bullets, true));
     }
   }
 
   if (resume.experience.length > 0) {
     children.push(sectionHeading("Experience"));
     for (const ex of resume.experience) {
-      children.push(twoColumnLine(ex.company, ex.location || "", { bold: true }));
-      const dates = [ex.startDate, ex.endDate].filter(Boolean).join(" – ");
-      children.push(twoColumnLine(ex.title, dates, { italics: true }));
-      children.push(...bullets(ex.bullets));
-    }
-  }
-
-  const leadership = resume.leadership.filter((l) => l.org || l.role);
-  if (leadership.length > 0) {
-    children.push(sectionHeading("Leadership & Activities"));
-    for (const l of leadership) {
-      children.push(twoColumnLine(l.org, l.location || "", { bold: true }));
-      children.push(twoColumnLine(l.role, l.dates || "", { italics: true }));
-      children.push(...bullets(l.bullets));
+      children.push(
+        twoColumnLine(ex.company, { bold: true, uppercase: true, size: HEADING_SIZE }, ex.location || "", {})
+      );
+      const dates = [ex.startDate, ex.endDate].filter(Boolean).join(" - ");
+      children.push(twoColumnLine(ex.title, { bold: true, italics: true }, dates, { italics: true }));
+      children.push(...bullets(ex.bullets, true));
     }
   }
 
   const s = resume.skillsAndInterests;
-  const additionalRows: [string, string[] | undefined][] = [
-    ["Skills:", s?.skills],
-    ["Languages:", s?.languages],
-    ["Interests:", s?.interests],
-  ];
-  const hasAdditional = additionalRows.some(([, arr]) => arr && arr.length > 0);
-  if (hasAdditional) {
+  const additional: [string, string[]][] = (
+    [
+      ["Certifications", s?.certifications],
+      ["Languages", s?.languages],
+      ["Software", s?.software],
+      ["Volunteer", s?.volunteer],
+      ["Interests", s?.interests],
+    ] as [string, string[] | undefined][]
+  ).filter((entry): entry is [string, string[]] => !!entry[1] && entry[1].length > 0);
+
+  if (additional.length > 0) {
     children.push(sectionHeading("Additional"));
-    for (const [label, arr] of additionalRows) {
-      if (!arr || arr.length === 0) continue;
-      children.push(
-        new Paragraph({
-          spacing: { after: 20 },
-          children: [
-            new TextRun({ text: `${label} `, bold: true, font: FONT, size: 19 }),
-            new TextRun({ text: arr.join(", "), font: FONT, size: 19 }),
-          ],
-        })
-      );
-    }
+    children.push(
+      ...bullets(
+        additional.map(([label, arr]) => `${label}: ${arr.join(", ")}`),
+        false
+      )
+    );
   }
 
   const doc = new Document({

@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { JobPosting, ResumeData, TailorResult } from "@/types/resume";
+import type { JobPosting, ResumeData } from "@/types/resume";
 
 export function JobStep({
   resume,
@@ -21,7 +21,7 @@ export function JobStep({
   resume: ResumeData;
   jobPosting: JobPosting;
   onJobPostingChange: (next: JobPosting) => void;
-  onTailored: (result: TailorResult) => void;
+  onTailored: (resume: ResumeData) => void;
   onSkipTailoring: () => void;
   onBack: () => void;
 }) {
@@ -68,7 +68,7 @@ export function JobStep({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to tailor your resume.");
-      onTailored(data as TailorResult);
+      onTailored(data.resume as ResumeData);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
@@ -80,7 +80,8 @@ export function JobStep({
     <Card>
       <CardContent className="flex flex-col gap-5 pt-2">
         <div>
-          <h2 className="text-lg font-semibold">Paste the target job posting</h2>
+          <span className="eyebrow">Step 2</span>
+          <h2 className="mt-1 text-lg font-semibold">Paste the target job posting</h2>
           <p className="text-sm text-muted-foreground">
             We&apos;ll prioritize and rewrite your bullets to align with this posting&apos;s language and
             requirements, then format everything the Anderson way.

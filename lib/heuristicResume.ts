@@ -4,10 +4,8 @@ import type {
   EducationEntry,
   ExperienceEntry,
   JobPosting,
-  LeadershipEntry,
   ResumeData,
   SkillsAndInterests,
-  TailorResult,
 } from "@/types/resume";
 
 // A zero-cost, local (non-AI) fallback used when no LLM provider is configured (or
@@ -22,12 +20,13 @@ const BULLET_PREFIX_RE = /^[•\u2022\u25CF\u25AA\u25E6○●▪]\s*|^[-*]\s+/;
 const EMAIL_RE = /[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}/;
 const PHONE_RE = /(\+?\d{1,3}[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/;
 const LINKEDIN_RE = /(?:https?:\/\/)?(?:www\.)?linkedin\.com\/[^\s,|]+/i;
-const LOCATION_RE = /\b[A-Z][a-zA-Z.]+(?:\s[A-Z][a-zA-Z.]+)*,\s*[A-Z]{2}\b/;
 const DATE_TOKEN = "(?:\\d{4}|[A-Za-z]{3,9}\\.?\\s+\\d{4}|Present|Current|Now)";
 const DATE_RANGE_RE = new RegExp(`(${DATE_TOKEN})\\s*(?:-|–|—|to)\\s*(${DATE_TOKEN})`, "i");
 const SINGLE_DATE_RE = new RegExp(`\\b(${DATE_TOKEN})\\b`, "i");
 const HONOR_PHRASES = ["summa cum laude", "magna cum laude", "cum laude", "with honors", "dean's list", "distinction"];
 
+// Anderson-shaped sections. A legacy "leadership" header is folded into Additional
+// volunteer lines (or experience when it looks like a full role with bullets).
 type SectionKey = "education" | "experience" | "leadership" | "skills";
 
 const SECTION_ALIASES: Record<string, SectionKey> = {
@@ -52,6 +51,10 @@ const SECTION_ALIASES: Record<string, SectionKey> = {
   "skills and interests": "skills",
   additional: "skills",
   "additional information": "skills",
+  certifications: "skills",
+  languages: "skills",
+  software: "skills",
+  interests: "skills",
 };
 
 function detectSection(line: string): SectionKey | null {
@@ -88,7 +91,6 @@ function extractContact(preambleLines: string[]): ContactInfo {
   const email = joined.match(EMAIL_RE)?.[0]?.trim() ?? "";
   const linkedin = joined.match(LINKEDIN_RE)?.[0]?.trim() ?? "";
   const phone = joined.match(PHONE_RE)?.[0]?.trim() ?? "";
-  const location = joined.match(LOCATION_RE)?.[0]?.trim() ?? "";
 
   let name = "";
   for (const line of preambleLines) {
@@ -99,7 +101,7 @@ function extractContact(preambleLines: string[]): ContactInfo {
     break;
   }
 
-  return { name, phone, email, linkedin, location };
+  return { name, phone, email, linkedin };
 }
 
 interface RawEntry {
@@ -217,10 +219,17 @@ function parseExperienceEntry(headerLines: string[], bullets: string[]): Experie
   return { id: newId(), company, location, title, startDate, endDate, bullets };
 }
 
-function parseLeadershipEntry(headerLines: string[], bullets: string[]): LeadershipEntry {
+function leadershipToVolunteerLines(headerLines: string[], bullets: string[]): string[] {
   const exp = parseExperienceEntry(headerLines, bullets);
+  const roleOrg = [exp.title, exp.company].filter(Boolean).join(", ");
   const dates = [exp.startDate, exp.endDate].filter(Boolean).join(" - ");
-  return { id: newId(), org: exp.company, role: exp.title, location: exp.location, dates, bullets };
+  const head = [roleOrg, dates].filter(Boolean).join(" · ");
+  const lines: string[] = [];
+  if (head) lines.push(head);
+  for (const b of bullets) {
+    if (b.trim()) lines.push(b.trim());
+  }
+  return lines;
 }
 
 function parseEducationEntry(headerLines: string[], bullets: string[]): EducationEntry {
@@ -265,30 +274,29 @@ function parseEducationEntry(headerLines: string[], bullets: string[]): Educatio
 
   degreeLine = degreeLine.replace(/^[,\-–—]+\s*/, "").replace(/[,\-–—]+\s*$/, "").trim();
 
+  // Anderson shape: degree + program/major live in one "degree" string.
   let degree = degreeLine;
-  let field = "";
   const inMatch = degreeLine.match(/^(.*?)\s+in\s+(.*)$/i);
   if (inMatch) {
-    degree = inMatch[1].trim();
-    field = inMatch[2].trim();
-  } else {
-    const commaIdx = degreeLine.indexOf(",");
-    if (commaIdx !== -1) {
-      degree = degreeLine.slice(0, commaIdx).trim();
-      field = degreeLine.slice(commaIdx + 1).trim();
-    }
+    degree = `${inMatch[1].trim()}, ${inMatch[2].trim()}`;
   }
 
-  return { id: newId(), school, location, degree, field, gpa, honors, gradDate, bullets };
+  const eduBullets = [...bullets];
+  if (gpa) eduBullets.unshift(`GPA: ${gpa}`);
+  if (honors) eduBullets.unshift(`Honors: ${honors}`);
+
+  return { id: newId(), school, location, degree, gradDate, bullets: eduBullets };
 }
 
 function parseSkillsSection(lines: string[]): SkillsAndInterests {
-  const skills: string[] = [];
+  const certifications: string[] = [];
   const languages: string[] = [];
+  const software: string[] = [];
+  const volunteer: string[] = [];
   const interests: string[] = [];
 
   for (const line of lines) {
-    const labelMatch = line.match(/^([A-Za-z][A-Za-z &]*):\s*(.*)$/);
+    const labelMatch = line.match(/^([A-Za-z][A-Za-z &/]*):\s*(.*)$/);
     const label = labelMatch?.[1]?.toLowerCase() ?? "";
     const body = labelMatch ? labelMatch[2] : line;
     const items = body
@@ -301,12 +309,44 @@ function parseSkillsSection(lines: string[]): SkillsAndInterests {
       languages.push(...items);
     } else if (label.includes("interest") || label.includes("hobbies") || (!labelMatch && /interests?:/i.test(line))) {
       interests.push(...items);
+    } else if (label.includes("certif") || label.includes("license")) {
+      certifications.push(...items);
+    } else if (
+      label.includes("software") ||
+      label.includes("tool") ||
+      label.includes("technolog") ||
+      label.includes("skill")
+    ) {
+      software.push(...items);
+    } else if (label.includes("volunteer") || label.includes("activit") || label.includes("leadership")) {
+      volunteer.push(...items);
     } else {
-      skills.push(...items);
+      // Unlabeled Additional lines default to software/skills-like items.
+      software.push(...items);
     }
   }
 
-  return { skills, languages, interests };
+  return { certifications, languages, software, volunteer, interests };
+}
+
+function emptySkills(): SkillsAndInterests {
+  return {
+    certifications: [],
+    languages: [],
+    software: [],
+    volunteer: [],
+    interests: [],
+  };
+}
+
+function mergeSkills(a: SkillsAndInterests, b: SkillsAndInterests): SkillsAndInterests {
+  return {
+    certifications: [...(a.certifications ?? []), ...(b.certifications ?? [])],
+    languages: [...(a.languages ?? []), ...(b.languages ?? [])],
+    software: [...(a.software ?? []), ...(b.software ?? [])],
+    volunteer: [...(a.volunteer ?? []), ...(b.volunteer ?? [])],
+    interests: [...(a.interests ?? []), ...(b.interests ?? [])],
+  };
 }
 
 export function extractResumeHeuristically(rawText: string): ResumeData {
@@ -316,17 +356,11 @@ export function extractResumeHeuristically(rawText: string): ResumeData {
 
   const education: EducationEntry[] = [];
   const experience: ExperienceEntry[] = [];
-  const leadership: LeadershipEntry[] = [];
-  let skillsAndInterests: SkillsAndInterests = { skills: [], languages: [], interests: [] };
+  let skillsAndInterests: SkillsAndInterests = emptySkills();
 
   for (const section of sections) {
     if (section.key === "skills") {
-      const parsed = parseSkillsSection(section.lines);
-      skillsAndInterests = {
-        skills: [...(skillsAndInterests.skills ?? []), ...(parsed.skills ?? [])],
-        languages: [...(skillsAndInterests.languages ?? []), ...(parsed.languages ?? [])],
-        interests: [...(skillsAndInterests.interests ?? []), ...(parsed.interests ?? [])],
-      };
+      skillsAndInterests = mergeSkills(skillsAndInterests, parseSkillsSection(section.lines));
       continue;
     }
 
@@ -336,13 +370,26 @@ export function extractResumeHeuristically(rawText: string): ResumeData {
     } else if (section.key === "experience") {
       for (const e of entries) experience.push(parseExperienceEntry(e.headerLines, e.bullets));
     } else if (section.key === "leadership") {
-      for (const e of entries) leadership.push(parseLeadershipEntry(e.headerLines, e.bullets));
+      // Fold into Additional → Volunteer (Anderson has no separate Leadership section).
+      const volunteerLines: string[] = [];
+      for (const e of entries) {
+        volunteerLines.push(...leadershipToVolunteerLines(e.headerLines, e.bullets));
+      }
+      skillsAndInterests = mergeSkills(skillsAndInterests, { volunteer: volunteerLines });
     }
   }
 
+  const hasSkills =
+    (skillsAndInterests.certifications?.length ?? 0) +
+      (skillsAndInterests.languages?.length ?? 0) +
+      (skillsAndInterests.software?.length ?? 0) +
+      (skillsAndInterests.volunteer?.length ?? 0) +
+      (skillsAndInterests.interests?.length ?? 0) >
+    0;
+
   // No recognizable section headers at all (e.g. a short pasted paragraph) — keep the
   // person's actual text as a single unlabeled experience entry rather than dropping it.
-  if (!education.length && !experience.length && !leadership.length && !skillsAndInterests.skills?.length) {
+  if (!education.length && !experience.length && !hasSkills) {
     const body = lines.filter((l, i) => l.trim() && !(i === 0 && l.trim() === contact.name));
     if (body.length) {
       experience.push({
@@ -357,7 +404,7 @@ export function extractResumeHeuristically(rawText: string): ResumeData {
     }
   }
 
-  return { contact, education, experience, leadership, skillsAndInterests };
+  return { contact, education, experience, skillsAndInterests };
 }
 
 // --- Local (non-AI) tailoring: re-prioritize the user's real bullets/skills by their
@@ -420,7 +467,7 @@ function reorderByRelevance(items: string[] | undefined, keywords: Keyword[]): s
   return [...items].sort((a, b) => score(b, keywords) - score(a, keywords));
 }
 
-export function tailorResumeHeuristically(resume: ResumeData, jobPosting: JobPosting): TailorResult {
+export function tailorResumeHeuristically(resume: ResumeData, jobPosting: JobPosting): ResumeData {
   // Deliberately excludes the employer's own name: it's noise for scoring bullet/skill
   // relevance, not a signal of what the role actually needs.
   const companyWords = new Set(
@@ -433,26 +480,16 @@ export function tailorResumeHeuristically(resume: ResumeData, jobPosting: JobPos
   );
   const keywords = extractKeywords(`${jobPosting.title ?? ""} ${jobPosting.rawText}`, companyWords);
 
-  const tailored: ResumeData = {
+  return {
     contact: resume.contact,
     education: resume.education.map((ed) => ({ ...ed, bullets: reorderBullets(ed.bullets, keywords) })),
     experience: resume.experience.map((ex) => ({ ...ex, bullets: reorderBullets(ex.bullets, keywords) })),
-    leadership: resume.leadership.map((l) => ({ ...l, bullets: reorderBullets(l.bullets, keywords) })),
     skillsAndInterests: {
-      skills: reorderByRelevance(resume.skillsAndInterests?.skills, keywords),
+      certifications: reorderByRelevance(resume.skillsAndInterests?.certifications, keywords),
       languages: resume.skillsAndInterests?.languages ?? [],
+      software: reorderByRelevance(resume.skillsAndInterests?.software, keywords),
+      volunteer: reorderByRelevance(resume.skillsAndInterests?.volunteer, keywords),
       interests: resume.skillsAndInterests?.interests ?? [],
     },
   };
-
-  const matchedKeywords = keywords.filter((k) => score(k.word, keywords) > 0).slice(0, 8).map((k) => k.word);
-  const notes = [
-    "Local mode (no AI model called): your existing bullets and skills were reordered by keyword overlap with the job posting; nothing was rewritten or invented.",
-    matchedKeywords.length
-      ? `Top job posting keywords used for scoring: ${matchedKeywords.join(", ")}.`
-      : "Couldn't detect strong keywords in the job posting text, so ordering was left mostly unchanged.",
-    "For AI-rewritten bullets tailored in language/tone to the posting, configure a real ANTHROPIC_API_KEY or OPENAI_API_KEY.",
-  ];
-
-  return { resume: tailored, notes };
 }

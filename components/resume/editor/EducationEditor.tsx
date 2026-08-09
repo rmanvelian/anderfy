@@ -20,17 +20,7 @@ export function EducationEditor({
   const addEntry = () =>
     onChange([
       ...entries,
-      {
-        id: newId(),
-        school: "",
-        location: "",
-        degree: "",
-        field: "",
-        gpa: "",
-        honors: "",
-        gradDate: "",
-        bullets: [],
-      },
+      { id: newId(), school: "", location: "", degree: "", gradDate: "", bullets: [] },
     ]);
 
   return (
@@ -68,48 +58,27 @@ export function EducationEditor({
                 placeholder="Los Angeles, CA"
               />
             </Field>
-            <Field label="Degree">
+            <Field label="Degree" hint="Degree + program/major together">
               <Input
                 value={ed.degree}
                 onChange={(e) => onChange(updateItem(entries, ed.id, { degree: e.target.value }))}
-                placeholder="MBA"
-              />
-            </Field>
-            <Field label="Field of study">
-              <Input
-                value={ed.field || ""}
-                onChange={(e) => onChange(updateItem(entries, ed.id, { field: e.target.value }))}
-                placeholder="Finance"
-              />
-            </Field>
-            <Field label="GPA (optional)">
-              <Input
-                value={ed.gpa || ""}
-                onChange={(e) => onChange(updateItem(entries, ed.id, { gpa: e.target.value }))}
-                placeholder="3.7"
-              />
-            </Field>
-            <Field label="Honors (optional)">
-              <Input
-                value={ed.honors || ""}
-                onChange={(e) => onChange(updateItem(entries, ed.id, { honors: e.target.value }))}
-                placeholder="Cum Laude"
+                placeholder="M.B.A., Full-Time Program"
               />
             </Field>
             <Field label="Graduation date">
               <Input
                 value={ed.gradDate}
                 onChange={(e) => onChange(updateItem(entries, ed.id, { gradDate: e.target.value }))}
-                placeholder="Jun 2027"
+                placeholder="Jun 2028"
               />
             </Field>
           </div>
           <div className="mt-3">
-            <Label className="mb-1.5 block">Notable activities (optional)</Label>
+            <Label className="mb-1.5 block">Honors / leadership / membership (optional)</Label>
             <BulletListEditor
               bullets={ed.bullets}
               onChange={(bullets) => onChange(updateItem(entries, ed.id, { bullets }))}
-              placeholder="Treasurer, Student Investment Fund"
+              placeholder="Leadership: Treasurer, Student Investment Fund"
             />
           </div>
         </div>
@@ -122,11 +91,12 @@ export function EducationEditor({
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
       <Label>{label}</Label>
       {children}
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }

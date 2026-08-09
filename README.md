@@ -21,10 +21,28 @@ Management Center (Parker CMC) recommends, tailored to a specific job posting.
 
 There's no login and no server-side database — your draft is kept in your browser's `localStorage`.
 
+## No fabricated facts, by construction
+
+Tailoring is deliberately scoped so the model can't introduce new facts about the candidate:
+
+- The AI is only ever allowed to (a) choose which existing education/experience entries to feature and in
+  what order, and (b) rewrite those entries' bullets. It never controls factual fields — company, school,
+  title, dates, location, contact info always come straight from the user's original resume
+  (`lib/tailorMerge.ts`), so the model has no channel through which to rename/invent an employer or degree.
+- Every rewritten bullet is checked against the original bullets it's replacing
+  (`lib/numberGuard.ts`): if it contains a number (a percentage, dollar figure, team size, etc.) that
+  doesn't appear anywhere in the source bullets, the rewrite is discarded and the original bullet is kept
+  instead.
+- `skillsAndInterests` values proposed by the model are filtered to only those that already exist
+  (verbatim) in the user's original list.
+- The job posting is passed to the model purely as *context* for what to emphasize — the prompt explicitly
+  states it is never a source of facts about the candidate.
+
 ## Tech stack
 
 - **Next.js (App Router) + TypeScript + Tailwind CSS + shadcn/ui**
-- **Anthropic (Claude) API**, with an OpenAI fallback, for resume parsing and job-tailored rewriting (see `lib/llm.ts`)
+- **Claude Sonnet 5 (Anthropic) or OpenAI** for resume parsing and job-tailored rewriting — see
+  `lib/llmClient.ts` (provider selection + structured-output calls) and `lib/llm.ts` (prompts/schemas)
 - **`@react-pdf/renderer`** renders the resume for both the on-screen preview and the downloaded PDF, so
   they're always in sync (`components/resume/AndersonResumeDocument.tsx`)
 - **`docx`** generates an editable Word version with equivalent structure/styling (`lib/docx-export.ts`)
@@ -41,6 +59,13 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+### Choosing an AI provider
+
+`lib/llmClient.ts` auto-detects which provider to use: **Anthropic's Claude Sonnet 5** if
+`ANTHROPIC_API_KEY` is set, otherwise **OpenAI** if `OPENAI_API_KEY` is set. Set `LLM_PROVIDER=anthropic` or
+`LLM_PROVIDER=openai` to force one explicitly. Both providers use native structured-output support (zod
+schema in, validated object out) rather than hand-rolled JSON parsing.
+
 ### Running without an API key (free local mode)
 
 Set `MOCK_LLM=1` in your environment (see `.env.example`) to skip paid LLM calls entirely. `lib/llm.ts`
@@ -49,11 +74,12 @@ also automatically falls back to this mode if neither `ANTHROPIC_API_KEY` nor `O
 This is **not** canned placeholder data — `lib/heuristicResume.ts` runs a zero-cost, regex/layout-based
 parser and tailoring pass over the resume and job posting you actually provide:
 
-- **Parsing**: detects resume sections (education/experience/leadership/skills), groups lines into entries,
-  and pulls out dates, locations, titles, GPA, honors, etc. from your real uploaded/pasted text.
+- **Parsing**: detects resume sections (education/experience/additional), groups lines into entries, and
+  pulls out dates, locations, titles, GPA/honors (as education bullets), etc. from your real
+  uploaded/pasted text. A legacy "Leadership" header is folded into Additional → Volunteer.
 - **Tailoring**: extracts the most frequent meaningful keywords from the job posting and reorders your
-  existing bullets and skills (most relevant first) by keyword overlap — it never rewrites or invents
-  content the way an LLM would, but it's real output for your real input.
+  existing bullets and Additional items (most relevant first) by keyword overlap — it never rewrites or
+  invents content the way an LLM would, but it's real output for your real input.
 
 Configure a real `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` to additionally get AI-rewritten, keyword-echoing
 bullets rather than just reordering.
@@ -73,10 +99,23 @@ components/
   resume/                  the Anderson-format PDF template, PDF preview, and structured editor
   wizard/                  the three wizard steps + stepper
 lib/
-  llm.ts                   OpenAI wrapper (+ mock mode) for parsing/tailoring
+  llmClient.ts             provider-agnostic structured LLM calls (Anthropic Claude Sonnet 5 / OpenAI)
+  llm.ts                   prompts, schemas, and mock-mode fallback for parsing/tailoring
+  heuristicResume.ts       free local parse/tailor used when no API key / MOCK_LLM=1
+  tailorMerge.ts           merges AI-proposed bullets/order back onto the original resume's facts
+  numberGuard.ts           flags/reverts bullets that introduce an unverified number
   parseFile.ts             PDF/DOCX -> raw text extraction
   docx-export.ts           ResumeData -> .docx buffer
   pageFit.ts                heuristic one-page-length estimator
   storage.ts               localStorage draft persistence
 types/resume.ts             shared ResumeData / JobPosting types
 ```
+
+## Design language
+
+The app's own UI (not the generated resume, which stays conservative black-and-white per the Anderson
+format) is styled to feel like an extension of [anderson.ucla.edu](https://www.anderson.ucla.edu/): Open
+Sans (the same fallback the Anderson site uses for its licensed "freight-sans-pro"), muted charcoal body
+text rather than pure black, UCLA Blue reserved for links/accents/buttons, light-gray alternating section
+backgrounds, bold sans-serif headings, pill-shaped buttons, and small uppercase "eyebrow" labels — all
+patterns pulled directly from the Anderson site's own stylesheet.

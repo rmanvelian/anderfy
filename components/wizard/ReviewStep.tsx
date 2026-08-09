@@ -51,14 +51,12 @@ async function downloadExport(kind: "pdf" | "docx", resume: ResumeData) {
 export function ReviewStep({
   resume,
   jobPosting,
-  notes,
   onChange,
   onRetailor,
   onStartOver,
 }: {
   resume: ResumeData;
   jobPosting: JobPosting;
-  notes?: string[];
   onChange: (next: ResumeData) => void;
   onRetailor: () => void;
   onStartOver: () => void;
@@ -85,27 +83,14 @@ export function ReviewStep({
           <CardContent className="flex flex-col gap-4 pt-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 className="text-lg font-semibold">Review &amp; edit</h2>
+                <span className="eyebrow">Step 3</span>
+                <h2 className="mt-1 text-lg font-semibold">Review &amp; edit</h2>
                 <p className="text-sm text-muted-foreground">
                   Everything here is editable — AI output is a draft, not the final word.
                 </p>
               </div>
               <PageFitIndicator resume={resume} />
             </div>
-
-            {notes && notes.length > 0 && (
-              <Alert>
-                <Sparkles className="size-4" />
-                <AlertTitle>Tailoring notes</AlertTitle>
-                <AlertDescription>
-                  <ul className="list-disc pl-4">
-                    {notes.map((note, i) => (
-                      <li key={i}>{note}</li>
-                    ))}
-                  </ul>
-                </AlertDescription>
-              </Alert>
-            )}
 
             {error && (
               <Alert variant="destructive">
