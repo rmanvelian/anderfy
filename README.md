@@ -41,12 +41,22 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-### Running without an API key
+### Running without an API key (free local mode)
 
-Set `MOCK_LLM=1` in your environment (see `.env.example`) to bypass the LLM API and use deterministic
-sample data for resume parsing/tailoring. This is useful for exercising the upload → edit → export pipeline
-without a live API key. `lib/llm.ts` also automatically falls back to mock mode if neither `ANTHROPIC_API_KEY`
-nor `OPENAI_API_KEY` is set.
+Set `MOCK_LLM=1` in your environment (see `.env.example`) to skip paid LLM calls entirely. `lib/llm.ts`
+also automatically falls back to this mode if neither `ANTHROPIC_API_KEY` nor `OPENAI_API_KEY` is set.
+
+This is **not** canned placeholder data — `lib/heuristicResume.ts` runs a zero-cost, regex/layout-based
+parser and tailoring pass over the resume and job posting you actually provide:
+
+- **Parsing**: detects resume sections (education/experience/leadership/skills), groups lines into entries,
+  and pulls out dates, locations, titles, GPA, honors, etc. from your real uploaded/pasted text.
+- **Tailoring**: extracts the most frequent meaningful keywords from the job posting and reorders your
+  existing bullets and skills (most relevant first) by keyword overlap — it never rewrites or invents
+  content the way an LLM would, but it's real output for your real input.
+
+Configure a real `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` to additionally get AI-rewritten, keyword-echoing
+bullets rather than just reordering.
 
 ## Project structure
 

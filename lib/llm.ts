@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { newId } from "@/lib/id";
-import { mockResumeData, mockTailoringNotes } from "@/lib/mock-data";
+import { extractResumeHeuristically, tailorResumeHeuristically } from "@/lib/heuristicResume";
 import type { JobPosting, ResumeData, TailorResult } from "@/types/resume";
 
 // Anthropic (Claude) is preferred when ANTHROPIC_API_KEY is set; otherwise fall back to
@@ -166,7 +166,7 @@ Rules:
 
 export async function extractResumeFromText(rawText: string): Promise<ResumeData> {
   if (isMockMode()) {
-    return mockResumeData();
+    return extractResumeHeuristically(rawText);
   }
   const json = await chatJson(
     EXTRACT_SYSTEM_PROMPT,
@@ -205,7 +205,7 @@ export async function tailorResumeToJob(
   jobPosting: JobPosting
 ): Promise<TailorResult> {
   if (isMockMode()) {
-    return { resume: mockResumeData(), notes: mockTailoringNotes() };
+    return tailorResumeHeuristically(resume, jobPosting);
   }
   const dropId = <T extends { id: string }>(obj: T): Omit<T, "id"> => {
     const rest: Record<string, unknown> = { ...obj };
