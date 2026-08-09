@@ -5,6 +5,7 @@ import { GraduationCap, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { EDUCATION_NONE_VALUE } from "@/lib/educationBullets";
 import { newId } from "@/lib/id";
 import { removeItem, updateItem } from "@/lib/resumeOps";
 import type { EducationEntry } from "@/types/resume";
@@ -26,7 +27,11 @@ export function EducationEditor({
         location: "",
         degree: "",
         gradDate: "",
-        bullets: ["Honors: None", "Leadership: None", "Membership: None"],
+        bullets: [
+          `Honors: ${EDUCATION_NONE_VALUE}`,
+          `Leadership: ${EDUCATION_NONE_VALUE}`,
+          `Membership: ${EDUCATION_NONE_VALUE}`,
+        ],
       },
     ]);
 
@@ -85,11 +90,11 @@ export function EducationEditor({
             <BulletListEditor
               bullets={ed.bullets}
               onChange={(bullets) => onChange(updateItem(entries, ed.id, { bullets }))}
-              placeholder="Honors: None"
+              placeholder={`Honors: ${EDUCATION_NONE_VALUE}`}
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              Anderson format: keep Honors, Leadership, and Membership — use &quot;None&quot; if
-              blank.
+              Anderson format: keep Honors, Leadership, and Membership — use
+              &quot;{EDUCATION_NONE_VALUE}&quot; if blank.
             </p>
           </div>
         </div>

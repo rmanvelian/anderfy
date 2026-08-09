@@ -137,9 +137,9 @@ Did analysis
   const resume = extractResumeHeuristically(sparse);
   assert.equal(resume.education.length, 1);
   const bullets = resume.education[0].bullets ?? [];
-  assert.equal(bullets[0], "Honors: None");
-  assert.equal(bullets[1], "Leadership: None");
-  assert.equal(bullets[2], "Membership: None");
+  assert.equal(bullets[0], "Honors: (None specified in upload)");
+  assert.equal(bullets[1], "Leadership: (None specified in upload)");
+  assert.equal(bullets[2], "Membership: (None specified in upload)");
 }
 
 {

@@ -3,6 +3,9 @@ import type { EducationEntry, ResumeData } from "@/types/resume";
 /** Anderson education rows that must appear on every school entry. */
 export const ANDERSON_EDU_LABELS = ["Honors", "Leadership", "Membership"] as const;
 
+/** Shown when the upload has no value for an Anderson education label. */
+export const EDUCATION_NONE_VALUE = "(None specified in upload)";
+
 export type AndersonEduLabel = (typeof ANDERSON_EDU_LABELS)[number];
 
 function nonEmpty(bullets: string[] | undefined): string[] {
@@ -28,6 +31,7 @@ export function isEducationPlaceholderValue(value: string): boolean {
   const trimmed = value.trim();
   if (!trimmed) return true;
   if (/^none$/i.test(trimmed)) return true;
+  if (/^\(?none specified in upload\)?$/i.test(trimmed)) return true;
   const dotCount = (trimmed.match(/[.…·•]/g) || []).length;
   const moreCount = (trimmed.match(/\bmore\b/gi) || []).length;
   // Anderson DOCX template filler is mostly dots / the word "more".
@@ -54,7 +58,7 @@ function extractLabeledValue(bullets: string[], label: AndersonEduLabel): string
 
 /**
  * Every education entry gets Honors / Leadership / Membership bullets.
- * Uses source text when present; otherwise "None" (Anderson template shape).
+ * Uses source text when present; otherwise "(None specified in upload)".
  * Preserves GPA and any other non-Anderson-labeled bullets after those three.
  */
 export function ensureAndersonEducationBullets(resume: ResumeData): ResumeData {
@@ -63,7 +67,7 @@ export function ensureAndersonEducationBullets(resume: ResumeData): ResumeData {
     const existing = nonEmpty(entry.bullets);
     const ensured = ANDERSON_EDU_LABELS.map((label) => {
       const value = extractLabeledValue(existing, label);
-      return value ? `${label}: ${value}` : `${label}: None`;
+      return value ? `${label}: ${value}` : `${label}: ${EDUCATION_NONE_VALUE}`;
     });
     const gpa = existing.filter((b) => /^GPA\s*:/i.test(b));
     const other = existing.filter((b) => !isAndersonEduLabel(b) && !/^GPA\s*:/i.test(b));
