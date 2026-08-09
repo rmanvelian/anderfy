@@ -24,7 +24,7 @@ export function WizardStepper({ current }: { current: WizardStepKey }) {
             <div
               className={cn(
                 "flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold",
-                isDone && "border-primary bg-primary text-primary-foreground",
+                isDone && "border-ucla-gold bg-ucla-gold text-ucla-blue",
                 isCurrent && "border-ucla-gold bg-ucla-gold text-ucla-darkest-blue",
                 !isDone && !isCurrent && "border-muted-foreground/30 text-muted-foreground"
               )}
