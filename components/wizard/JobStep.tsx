@@ -16,14 +16,12 @@ export function JobStep({
   jobPosting,
   onJobPostingChange,
   onTailored,
-  onSkipTailoring,
   onBack,
 }: {
   resume: ResumeData;
   jobPosting: JobPosting;
   onJobPostingChange: (next: JobPosting) => void;
   onTailored: (resume: ResumeData) => void;
-  onSkipTailoring: () => void;
   onBack: () => void;
 }) {
   const [url, setUrl] = useState("");

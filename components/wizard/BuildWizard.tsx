@@ -66,7 +66,6 @@ export function BuildWizard() {
             setResume(tailoredResume);
             setStep("review");
           }}
-          onSkipTailoring={() => setStep("review")}
           onBack={() => setStep("source")}
         />
       )}
