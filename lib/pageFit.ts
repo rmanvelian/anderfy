@@ -1,3 +1,4 @@
+import { trimOneBalancedExperienceBullet } from "@/lib/experienceBullets";
 import type { ResumeData, SkillsAndInterests } from "@/types/resume";
 
 // Rough heuristic (not a real PDF layout pass) for the one-page Anderson
@@ -95,43 +96,33 @@ function trimAdditional(skills: SkillsAndInterests): boolean {
 }
 
 /**
- * Trim bullets / Additional items from the end until the resume is estimated
- * to fit on one page. Prefers dropping the last bullet of the longest, then
- * oldest experience entries, then education, then Additional — never invents
- * content, only removes.
+ * Trim bullets / Additional items until the resume is estimated to fit on one
+ * page. Never empties an experience entry that still has bullets, and trims
+ * experience in a balanced way (max−min bullet counts stay within 1).
  */
 export function fitResumeToOnePage(resume: ResumeData): ResumeData {
   const next = cloneResume(resume);
   let guard = 200;
 
   while (!estimatePageFit(next).fitsOnePage && guard-- > 0) {
-    // Prefer trimming from the bottom of the resume (oldest experience first
-    // in reverse-chronological lists sit last).
-    let trimmed = false;
+    // Soft content first — don't strip experience roles bare.
+    if (trimAdditional(next.skillsAndInterests)) continue;
 
-    for (let i = next.experience.length - 1; i >= 0; i--) {
-      if (next.experience[i].bullets.length > 0) {
-        next.experience[i].bullets.pop();
-        trimmed = true;
-        break;
-      }
-    }
-    if (trimmed) continue;
-
+    let trimmedEducation = false;
     for (let i = next.education.length - 1; i >= 0; i--) {
       const bullets = next.education[i].bullets ?? [];
       if (bullets.length > 0) {
         bullets.pop();
         next.education[i].bullets = bullets;
-        trimmed = true;
+        trimmedEducation = true;
         break;
       }
     }
-    if (trimmed) continue;
+    if (trimmedEducation) continue;
 
-    if (trimAdditional(next.skillsAndInterests)) continue;
+    if (trimOneBalancedExperienceBullet(next.experience)) continue;
 
-    // Nothing left to remove — stop even if still estimated over (empty shell).
+    // Nothing safe left to remove.
     break;
   }
 

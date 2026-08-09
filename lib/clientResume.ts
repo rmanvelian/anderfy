@@ -1,4 +1,5 @@
 import { withBasePath } from "@/lib/apiBase";
+import { normalizeExperienceBullets } from "@/lib/experienceBullets";
 import { extractResumeHeuristically, tailorResumeHeuristically } from "@/lib/heuristicResume";
 import { fitResumeToOnePage } from "@/lib/pageFit";
 import { extractTextFromFile, UnsupportedFileTypeError } from "@/lib/parseFile";
@@ -98,7 +99,9 @@ export async function tailorResumeClient(
     if (error instanceof Error && !isNetworkOrMissingApi(error)) throw error;
   }
 
-  return fitResumeToOnePage(tailorResumeHeuristically(resume, jobPosting, options));
+  return fitResumeToOnePage(
+    normalizeExperienceBullets(tailorResumeHeuristically(resume, jobPosting, options), resume)
+  );
 }
 
 export async function fetchJobPostingText(url: string): Promise<string> {

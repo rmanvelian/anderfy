@@ -10,7 +10,8 @@ import { PageFitIndicator } from "@/components/resume/PageFitIndicator";
 import { ResumeEditor } from "@/components/resume/ResumeEditor";
 import { downloadResumeExport } from "@/lib/clientExport";
 import { tailorResumeClient } from "@/lib/clientResume";
-import { estimatePageFit, fitResumeToOnePage } from "@/lib/pageFit";
+import { normalizeExperienceBullets } from "@/lib/experienceBullets";
+import { fitResumeToOnePage } from "@/lib/pageFit";
 import { PREVIEW_LETTERBOX_BG } from "@/lib/previewTheme";
 import type { JobPosting, ResumeData } from "@/types/resume";
 
@@ -49,15 +50,15 @@ export function ReviewStep({
   const [regenerating, setRegenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Keep the draft on one page even if the user pastes a lot into the editor.
+  // Keep experience bullets valid/balanced and the draft on one page.
   useEffect(() => {
     if (regenerating) return;
-    if (estimatePageFit(resume).fitsOnePage) return;
-    const fitted = fitResumeToOnePage(resume);
+    const normalized = normalizeExperienceBullets(resume, sourceResume);
+    const fitted = fitResumeToOnePage(normalized);
     if (JSON.stringify(fitted) !== JSON.stringify(resume)) {
       onChange(fitted);
     }
-  }, [resume, onChange, regenerating]);
+  }, [resume, sourceResume, onChange, regenerating]);
 
   const handleGenerateNew = async () => {
     if (!jobPosting.rawText.trim()) {

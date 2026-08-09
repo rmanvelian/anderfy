@@ -3,6 +3,7 @@ import { MAX_BULLET_CHARS } from "@/lib/bulletLength";
 import { extractResumeHeuristically, tailorResumeHeuristically } from "@/lib/heuristicResume";
 import { newId } from "@/lib/id";
 import { chatStructured, isLlmConfigured } from "@/lib/llmClient";
+import { normalizeExperienceBullets } from "@/lib/experienceBullets";
 import { fitResumeToOnePage } from "@/lib/pageFit";
 import { mergeOrderedEntries, sanitizeStringList } from "@/lib/tailorMerge";
 import type { TailorOptions } from "@/lib/tailorOptions";
@@ -142,7 +143,10 @@ Rules:
 - List ids in your desired display order (most relevant to this job posting first). You do not need to include every entry — any you omit will automatically be kept, unchanged, in their original position, so only include an entry if you're reordering it and/or rewriting its bullets.
 - Every value in "skillsAndInterests" must be copied verbatim (exact spelling) from the candidate's original skillsAndInterests — you may select a relevant subset and reorder them, but never add a new one.
 - Keep each bullet no longer than roughly two lines (about ${MAX_BULLET_CHARS} characters) when rendered on the resume — ideally one line — starting with a strong past-tense action verb, echoing job-posting language only where it truthfully matches something the candidate already did.
-- Aim for at most 3-4 bullets for the most relevant/recent entries and 2-3 for others, to help the final resume fit one page.`;
+- EXPERIENCE BULLET COUNTS (hard requirements):
+  1. Never leave an experience entry with zero bullets if that entry had bullets in the source resume — include at least one rewritten (or original) bullet for every such role.
+  2. Across all experience entries that have bullets, the number of bullets per entry may differ by at most ONE. Examples: 4/3/3 is OK; 5/4/3 is NOT (5−3=2). Prefer giving the most recent / most relevant role the higher count when you need the +1.
+  3. Typical targets: 3-4 bullets for the top role(s) and 2-3 for others, while obeying the max-difference-of-one rule and the one-page goal.`;
 
 function collectBulletPhrasings(resume: ResumeData | undefined): string[] {
   if (!resume) return [];
@@ -172,7 +176,7 @@ function buildTailoredResume(
   resume: ResumeData,
   parsed: z.infer<typeof tailorResponseSchema>
 ): ResumeData {
-  return fitResumeToOnePage({
+  const merged: ResumeData = {
     contact: resume.contact,
     education: mergeOrderedEntries(resume.education, parsed.education),
     experience: mergeOrderedEntries(resume.experience, parsed.experience),
@@ -198,7 +202,10 @@ function buildTailoredResume(
         parsed.skillsAndInterests?.interests
       ),
     },
-  });
+  };
+  // Restore any experience the model emptied, balance counts (max−min ≤ 1),
+  // then trim for one page without stripping a role to zero bullets.
+  return fitResumeToOnePage(normalizeExperienceBullets(merged, resume));
 }
 
 function regenerateInstructions(previousBullets: string[], attempt: number): string {
@@ -219,7 +226,9 @@ export async function tailorResumeToJob(
   options: TailorOptions = {}
 ): Promise<ResumeData> {
   if (isMockMode()) {
-    return fitResumeToOnePage(tailorResumeHeuristically(resume, jobPosting, options));
+    return fitResumeToOnePage(
+      normalizeExperienceBullets(tailorResumeHeuristically(resume, jobPosting, options), resume)
+    );
   }
 
   const previousBullets = options.regenerate ? collectBulletPhrasings(options.previousResume) : [];
