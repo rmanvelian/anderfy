@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Link2, Loader2, Sparkles } from "lucide-react";
+import { Link2, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -144,8 +144,8 @@ export function JobStep({
             Back
           </Button>
           <Button onClick={handleTailor} disabled={tailoring}>
-            {tailoring ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-            Tailor my resume
+            {tailoring ? <Loader2 className="size-4 animate-spin" /> : null}
+            Submit
           </Button>
         </div>
       </CardContent>
