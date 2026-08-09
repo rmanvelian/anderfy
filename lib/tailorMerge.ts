@@ -15,9 +15,18 @@ export interface ProposedEntry {
  * user's original entries. Factual fields (company, school, title, dates,
  * location, degree, etc.) always come from the original entry — the model
  * never controls them, so it structurally cannot rename/invent an employer,
- * school, or date. Only the bullet *text* can change, and only if it
- * doesn't introduce a number absent from the original bullets (see
- * `introducesUnverifiedNumbers`); otherwise the original bullets are kept.
+ * school, or date.
+ *
+ * Bullet text can only change under two conditions, both enforced here
+ * rather than merely requested by the prompt:
+ *  1. The entry must already have at least one original bullet — an entry
+ *     with zero original bullets has nothing legitimate to rephrase, so any
+ *     bullet the model proposes for it is necessarily invented and is
+ *     dropped entirely (this is what catches things like an LLM inventing
+ *     "relevant coursework" for an education entry that listed none).
+ *  2. The rewritten bullets must not introduce a number absent from the
+ *     original bullets (see `introducesUnverifiedNumbers`); otherwise the
+ *     original bullets are kept as-is.
  *
  * Entries the model doesn't mention are appended afterward, unchanged, in
  * their original relative order — nothing from the source resume is ever
@@ -36,12 +45,18 @@ export function mergeOrderedEntries<T extends WithIdAndBullets>(
     if (!source || seen.has(item.id)) continue;
     seen.add(item.id);
 
-    const proposedBullets = (item.bullets || []).filter((b) => b && b.trim());
     const sourceBullets = source.bullets || [];
-    const safeBullets =
-      proposedBullets.length > 0 && !introducesUnverifiedNumbers(proposedBullets, sourceBullets)
-        ? proposedBullets
-        : sourceBullets;
+    const proposedBullets = (item.bullets || []).filter((b) => b && b.trim());
+
+    let safeBullets: string[];
+    if (sourceBullets.length === 0) {
+      // Nothing here to legitimately rephrase — anything proposed would be invented.
+      safeBullets = [];
+    } else if (proposedBullets.length > 0 && !introducesUnverifiedNumbers(proposedBullets, sourceBullets)) {
+      safeBullets = proposedBullets;
+    } else {
+      safeBullets = sourceBullets;
+    }
 
     result.push({ ...source, bullets: safeBullets });
   }
