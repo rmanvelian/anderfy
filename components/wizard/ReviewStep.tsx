@@ -40,6 +40,7 @@ export function ReviewStep({
   onStartOver: () => void;
 }) {
   const [exporting, setExporting] = useState<"pdf" | "docx" | null>(null);
+  const [regenerating, setRegenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Keep the draft on one page even if the user pastes a lot into the editor.
@@ -50,6 +51,23 @@ export function ReviewStep({
       onChange(fitted);
     }
   }, [resume, onChange]);
+
+  const handleGenerateNew = async () => {
+    if (!jobPosting.rawText.trim()) {
+      onRetailor();
+      return;
+    }
+    setRegenerating(true);
+    setError(null);
+    try {
+      const next = await tailorResumeClient(resume, jobPosting);
+      onChange(next);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to generate a new resume.");
+    } finally {
+      setRegenerating(false);
+    }
+  };
 
   const handleExport = async (kind: "pdf" | "docx") => {
     setExporting(kind);
@@ -91,12 +109,12 @@ export function ReviewStep({
         </Card>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="ghost" onClick={onStartOver}>
+          <Button variant="outline" onClick={onStartOver} disabled={regenerating}>
             Start over
           </Button>
-          <Button variant="outline" onClick={onRetailor}>
-            <Sparkles className="size-4" />
-            {jobPosting.rawText.trim() ? "Re-tailor to job posting" : "Tailor to a job posting"}
+          <Button variant="outline" onClick={handleGenerateNew} disabled={regenerating}>
+            {regenerating ? <Loader2 className="size-4 animate-spin" /> : null}
+            Generate new resume
           </Button>
         </div>
       </div>
