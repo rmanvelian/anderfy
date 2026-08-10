@@ -3,6 +3,16 @@ import { HeroCta, BUILD_SECTION_ID } from "@/components/landing/HeroCta";
 import { BuildWizard } from "@/components/wizard/BuildWizard";
 import { Card, CardContent } from "@/components/ui/card";
 
+function SectionGoldDivider() {
+  return (
+    <div className="relative z-10 -my-0.5" aria-hidden="true">
+      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6">
+        <div className="h-1 w-full rounded-full bg-ucla-gold" />
+      </div>
+    </div>
+  );
+}
+
 const FEATURES = [
   {
     icon: Upload,
