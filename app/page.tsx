@@ -45,25 +45,25 @@ export default function Home() {
       {/* UCLA Brand Gradient (Darker Blue -> UCLA Blue), stopping short of Lighter
           Blue wherever headline text sits so contrast stays safely high. */}
       <section className="relative overflow-hidden bg-gradient-to-b from-ucla-darkest-blue via-ucla-blue to-ucla-blue">
-        <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-6 px-4 pt-20 pb-0 text-center sm:px-6">
-          <h1 className="flex w-full max-w-4xl flex-col gap-4 text-ucla-gold sm:gap-5">
-            <span className="text-6xl sm:text-7xl">Anderfy</span>
-            <span className="text-[clamp(1.35rem,3.8vw,2.25rem)] font-normal whitespace-nowrap">
-              An AI-Powered Anderson Resume Builder
-            </span>
-          </h1>
-          <p className="max-w-2xl text-lg text-white/85 sm:text-xl">
-            Anderfy turns your background into a polished, one-page resume in the UCLA Anderson format,
-            tailored to a specific job posting.
-          </p>
-        </div>
-        {/* Anderson-style gold ellipsis divider, then the CTA. */}
-        <div className="flex flex-col items-center justify-center gap-8 px-4 pt-8 pb-10 sm:gap-10 sm:pt-10 sm:pb-12">
+        <div className="mx-auto flex w-full max-w-4xl flex-col items-center px-4 pt-20 pb-10 text-center sm:px-6 sm:pb-12">
+          <div className="flex w-full flex-col items-center gap-6">
+            <h1 className="flex w-full max-w-4xl flex-col gap-4 text-ucla-gold sm:gap-5">
+              <span className="text-6xl sm:text-7xl">Anderfy</span>
+              <span className="text-[clamp(1.35rem,3.8vw,2.25rem)] font-normal whitespace-nowrap">
+                An AI-Powered Anderson Resume Builder
+              </span>
+            </h1>
+            <p className="max-w-2xl text-lg text-white/85 sm:text-xl">
+              Anderfy turns your background into a polished, one-page resume in the UCLA Anderson format,
+              tailored to a specific job posting.
+            </p>
+          </div>
+          {/* Equal top/bottom margin keeps the ellipsis halfway between copy and CTA. */}
           <div
             aria-hidden="true"
-            className="select-none text-3xl font-bold tracking-[0.45em] text-ucla-gold sm:text-4xl"
+            className="my-10 select-none text-3xl font-bold tracking-[0.12em] text-ucla-gold sm:my-12 sm:text-4xl"
           >
-            .&nbsp;.&nbsp;.
+            . . .
           </div>
           <HeroCta />
         </div>
