@@ -5,10 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 
 function SectionGoldDivider() {
   return (
-    <div className="relative z-10 -my-px" aria-hidden="true">
-      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6">
-        <div className="h-0.5 w-full rounded-full bg-ucla-gold" />
-      </div>
+    <div className="relative z-10 -my-px w-full" aria-hidden="true">
+      <div className="h-0.5 w-full bg-ucla-gold" />
     </div>
   );
 }
