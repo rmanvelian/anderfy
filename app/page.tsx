@@ -47,7 +47,7 @@ export default function Home() {
       <section className="relative overflow-hidden bg-gradient-to-b from-ucla-darkest-blue via-ucla-blue to-ucla-blue">
         <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-6 px-4 pt-20 pb-0 text-center sm:px-6">
           <h1 className="flex w-full max-w-4xl flex-col gap-4 text-ucla-gold sm:gap-5">
-            <span className="text-5xl sm:text-6xl">Anderfy</span>
+            <span className="text-6xl sm:text-7xl">Anderfy</span>
             <span className="text-[clamp(1.35rem,3.8vw,2.25rem)] font-normal whitespace-nowrap">
               An AI-Powered Anderson Resume Builder
             </span>
@@ -57,8 +57,14 @@ export default function Home() {
             tailored to a specific job posting.
           </p>
         </div>
-        {/* Center the CTA in the space between the supporting copy and the section divider. */}
-        <div className="flex items-center justify-center py-10 sm:py-12">
+        {/* Anderson-style gold ellipsis divider, then the CTA. */}
+        <div className="flex flex-col items-center justify-center gap-8 px-4 pt-8 pb-10 sm:gap-10 sm:pt-10 sm:pb-12">
+          <div
+            aria-hidden="true"
+            className="select-none text-3xl font-bold tracking-[0.45em] text-ucla-gold sm:text-4xl"
+          >
+            .&nbsp;.&nbsp;.
+          </div>
           <HeroCta />
         </div>
       </section>
