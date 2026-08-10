@@ -47,7 +47,7 @@ export default function Home() {
       <section className="relative overflow-hidden bg-gradient-to-b from-ucla-darkest-blue via-ucla-blue to-ucla-blue">
         <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-6 px-4 pt-20 pb-0 text-center sm:px-6">
           <h1 className="flex w-full max-w-4xl flex-col gap-4 text-ucla-gold sm:gap-5">
-            <span className="text-4xl sm:text-5xl">Anderfy</span>
+            <span className="text-5xl sm:text-6xl">Anderfy</span>
             <span className="text-[clamp(1.35rem,3.8vw,2.25rem)] font-normal whitespace-nowrap">
               An AI-Powered Anderson Resume Builder
             </span>
