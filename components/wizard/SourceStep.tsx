@@ -62,8 +62,8 @@ export function SourceStep({
           <span className="eyebrow">Step 1</span>
           <h2 className="mt-1 text-lg font-semibold">Tell us about your background</h2>
           <p className="text-sm text-muted-foreground">
-            Upload an existing resume, paste some background text, or start from a blank page — we&apos;ll turn
-            it into an Anderson-formatted resume next.
+            Upload an existing resume or paste some background text — we&apos;ll turn it into an
+            Anderson-formatted resume next.
           </p>
         </div>
 
@@ -71,7 +71,6 @@ export function SourceStep({
           <TabsList>
             <TabsTrigger value="upload">Upload resume</TabsTrigger>
             <TabsTrigger value="paste">Paste text</TabsTrigger>
-            <TabsTrigger value="blank">Start blank</TabsTrigger>
           </TabsList>
 
           <TabsContent value="upload" className="flex flex-col gap-3">
@@ -114,20 +113,6 @@ export function SourceStep({
             <Button onClick={handlePasteSubmit} disabled={loading} className="w-fit">
               {loading ? <Loader2 className="size-4 animate-spin" /> : null}
               Submit
-            </Button>
-          </TabsContent>
-
-          <TabsContent value="blank" className="flex flex-col gap-3">
-            <p className="text-sm text-muted-foreground">
-              Start with a completely blank resume and fill in your education, experience, and activities
-              yourself in the next steps.
-            </p>
-            <Button
-              variant="outline"
-              className="w-fit"
-              onClick={() => onResumeReady(createEmptyResumeData())}
-            >
-              Start blank
             </Button>
           </TabsContent>
         </Tabs>
