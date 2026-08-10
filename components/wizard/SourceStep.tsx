@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { parseResumeClient } from "@/lib/clientResume";
-import { createEmptyResumeData, type ResumeData } from "@/types/resume";
+import type { ResumeData } from "@/types/resume";
 
 export function SourceStep({
   onResumeReady,

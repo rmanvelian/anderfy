@@ -16,7 +16,7 @@ const FEATURES = [
     icon: Upload,
     title: "Supports multiple upload types",
     description:
-      "Upload an existing resume (PDF/DOCX), paste rough background text, or start from a completely blank page.",
+      "Upload an existing resume (PDF/DOCX) or paste rough background text to get started.",
   },
   {
     icon: Target,
