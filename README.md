@@ -59,14 +59,16 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-### Deploying with Claude AI (recommended: Vercel)
+### Deploying with Claude AI (Vercel)
+
+**Production URL:** [https://anderfy-20hp9ei52-rm-b589.vercel.app/](https://anderfy-20hp9ei52-rm-b589.vercel.app/)
 
 **GitHub Pages cannot run Claude.** Pages only serves static files — there is no Node
 server, so `/api/parse-resume` and `/api/tailor` do not exist there, and an
 `ANTHROPIC_API_KEY` cannot be kept secret in the browser. Localhost works because
 `next dev` runs those API routes with keys from `.env.local`.
 
-To get the same AI behavior as localhost on a public URL:
+To deploy (or re-deploy) the app:
 
 1. Import this repo in [Vercel](https://vercel.com) (Framework Preset: Next.js).
 2. In Vercel → Project → Settings → Environment Variables, add:
@@ -76,45 +78,20 @@ To get the same AI behavior as localhost on a public URL:
 
 Do **not** put the API key in `NEXT_PUBLIC_*` variables.
 
-### Optional: keep github.io UI, call Vercel for AI
+### GitHub Pages → Vercel redirect
 
-If you want the GitHub Pages site to use Claude without moving the UI off github.io:
+[`https://rmanvelian.github.io/anderfy/`](https://rmanvelian.github.io/anderfy/) is **not** the
+app — it only redirects to the Vercel deployment above (path, query, and hash preserved).
 
-1. Deploy the full Next.js app to Vercel with `ANTHROPIC_API_KEY` as above.
-2. On Vercel, also set  
-   `CORS_ALLOWED_ORIGINS=https://<your-user>.github.io,http://localhost:3000`
-3. In the GitHub repo, add Actions secret  
-   `NEXT_PUBLIC_API_ORIGIN=https://your-app.vercel.app`  
-   (the static Pages workflow passes this into `build:pages`).
-4. Redeploy Pages. The static UI will POST to Vercel for parse/tailor; Submit should
-   show a real delay while Claude runs.
-
-Without `NEXT_PUBLIC_API_ORIGIN`, github.io stays in **heuristic-only** mode (instant
-Submit, no AI rewrite). The wizard shows a banner when that mode is active.
-
-### Deploying to GitHub Pages (static / no AI by default)
-
-There is no checked-in root `index.html` — Anderfy is a Next.js app. For GitHub Pages,
-build a **static export** that produces `out/index.html`:
-
-```bash
-npm run build:pages
-```
-
-That script:
-1. Temporarily parks `app/api` (Route Handlers can't be statically exported)
-2. Runs `next build` with `output: "export"` and `basePath` set to `/<repo-name>`
-3. Writes the site into `out/` (including `index.html` and a `404.html` fallback)
-4. Restores `app/api` for normal local/server development
-
-A GitHub Actions workflow (`.github/workflows/static.yml`) runs this on pushes to
-`main` and deploys the `out/` folder to GitHub Pages (not the repo root / README).
+- Redirect page: `github-pages/index.html`
+- Workflow: `.github/workflows/static.yml` copies that file to `out/index.html` and
+  `out/404.html`, then deploys `out/` to Pages (no Next.js build).
 
 **Enable Pages in the repo:** Settings → Pages → Source: **GitHub Actions**.
 
-**What works on GitHub Pages alone:** upload/paste → heuristic parse/tailor → edit →
-PDF/DOCX export in the browser. Live Claude/OpenAI needs Vercel (or another Node host)
-as described above.
+If the Vercel URL changes (for example you get a stable production alias), update the
+target in `github-pages/index.html` and this README, then merge to `main` so Pages
+redeploys.
 
 ### Choosing an AI provider
 

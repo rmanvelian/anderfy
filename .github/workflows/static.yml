@@ -1,5 +1,5 @@
-# Build the Next.js static export and deploy out/ (with index.html) to GitHub Pages.
-# Deploying the repo root would only surface README.md — the app lives in out/.
+# Deploy a tiny redirect site so github.io/anderfy forwards to the Vercel app.
+# The real Anderfy app (with /api + Claude) runs on Vercel, not GitHub Pages.
 name: Deploy static content to Pages
 
 on:
@@ -26,22 +26,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build static site (out/index.html)
-        run: npm run build:pages
-        env:
-          GITHUB_PAGES_REPO: ${{ github.event.repository.name }}
-          # Optional: point the static UI at a Vercel (Node) deploy that has ANTHROPIC_API_KEY.
-          # Set repo secret NEXT_PUBLIC_API_ORIGIN=https://your-app.vercel.app
-          NEXT_PUBLIC_API_ORIGIN: ${{ secrets.NEXT_PUBLIC_API_ORIGIN }}
+      - name: Prepare redirect artifact
+        run: |
+          mkdir -p out
+          cp github-pages/index.html out/index.html
+          # Project Pages uses 404.html for unknown paths under /anderfy/*
+          cp github-pages/index.html out/404.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -49,7 +39,6 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Next.js static export output — not the repo root
           path: out
 
       - name: Deploy to GitHub Pages
