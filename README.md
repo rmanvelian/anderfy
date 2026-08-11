@@ -61,7 +61,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Deploying with Claude AI (Vercel)
 
-**Production URL:** [https://anderfy-20hp9ei52-rm-b589.vercel.app/](https://anderfy-20hp9ei52-rm-b589.vercel.app/)
+**Production URL:** [https://anderfy.vercel.app/](https://anderfy.vercel.app/)
 
 **GitHub Pages cannot run Claude.** Pages only serves static files — there is no Node
 server, so `/api/parse-resume` and `/api/tailor` do not exist there, and an
