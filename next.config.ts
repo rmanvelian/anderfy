@@ -19,8 +19,10 @@ const nextConfig: NextConfig = {
   // Required for static export; harmless for server builds.
   images: { unoptimized: true },
   // Expose basePath to client fetch() helpers (Link/router already know it).
+  // STATIC_EXPORT tells the browser to skip /api/* (absent on GitHub Pages).
   env: {
     NEXT_PUBLIC_BASE_PATH: basePath,
+    NEXT_PUBLIC_STATIC_EXPORT: isGithubPages ? "1" : "",
   },
 };
 
