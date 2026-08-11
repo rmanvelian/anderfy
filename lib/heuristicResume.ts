@@ -1,6 +1,7 @@
 import { ensureAndersonAdditionalRows } from "@/lib/additionalSection";
 import { ensureAndersonEducationBullets } from "@/lib/educationBullets";
 import { newId } from "@/lib/id";
+import { sanitizeAndersonFieldValue } from "@/lib/sanitizeAndersonValue";
 import type {
   ContactInfo,
   EducationEntry,
@@ -454,13 +455,21 @@ function parseEducationEntry(headerLines: string[], bullets: string[]): Educatio
   return { id: newId(), school, location, degree, gradDate, bullets: eduBullets };
 }
 
+// Note: use "Memberships" (plural) only — Anderson education uses "Membership:"
+// which must stay on the school, not become Additional → Volunteer.
 const SKILL_LABEL_LINE_RE =
-  /^(certifications?|licenses?|languages?|software|tools?|technologies|technical skills?|skills?|volunteer(?:ing)?|memberships?|activities|interests?|hobbies)\s*:\s*(.*)$/i;
+  /^(certifications?|licenses?|languages?|software|tools?|technologies|technical skills?|skills?|volunteer(?:ing)?|memberships|activities|interests?|hobbies)\s*:\s*(.*)$/i;
+
+/** Inline / mid-paragraph Additional labels (common in pasted resume text). */
+const INLINE_SKILL_LABEL_RE =
+  /\b(Certifications?|Licenses?|Languages?|Software|Tools?|Technologies|Technical Skills?|Skills?|Volunteer(?:ing)?|Memberships|Interests?|Hobbies)\s*:\s*/gi;
+
+const SECTION_BOUNDARY_RE = /\b(?:EDUCATION|EXPERIENCE|ADDITIONAL|SKILLS(?:\s*(?:&|AND)\s*INTERESTS)?)\b/i;
 
 /** Split "Certifications: A; Languages: B; Software: C, D" into labeled rows. */
 function expandMultiLabelSkillLines(line: string): string[] {
   const parts = line
-    .split(/(?=\b(?:Certifications?|Licenses?|Languages?|Software|Tools?|Technologies|Skills?|Volunteer(?:ing)?|Memberships?|Interests?|Hobbies)\s*:)/i)
+    .split(/(?=\b(?:Certifications?|Licenses?|Languages?|Software|Tools?|Technologies|Skills?|Volunteer(?:ing)?|Memberships|Interests?|Hobbies)\s*:)/i)
     .map((p) => p.trim().replace(/^[;|,\-–—]+\s*/, ""))
     .filter(Boolean);
   return parts.length > 0 ? parts : [line];
@@ -487,7 +496,7 @@ function parseSkillsSection(lines: string[]): SkillsAndInterests {
       // body looks like a short phrase with "and"; still split certs/software lists.
       const items = body
         .split(/[,;•|]/)
-        .map((s) => s.trim())
+        .map((s) => sanitizeAndersonFieldValue(s))
         .filter((s) => s && !/^[\.…]{2,}$/.test(s) && !SECTION_GUIDANCE_RE.test(s));
       if (!items.length) continue;
 
@@ -529,6 +538,46 @@ function skillsItemCount(skills: SkillsAndInterests): number {
     (skills.volunteer?.length ?? 0) +
     (skills.interests?.length ?? 0)
   );
+}
+
+/**
+ * Pull Certifications:/Languages:/Software:/… rows from arbitrary resume text,
+ * including mid-line and sparsely newline-separated pasted blobs.
+ */
+export function extractSkillsFromRawText(rawText: string): SkillsAndInterests {
+  const labeled: string[] = [];
+  const lines = rawText.split(/\r?\n/).map((l) => l.replace(/\s+$/, ""));
+
+  for (const rawLine of lines) {
+    const cleaned = rawLine.replace(BULLET_PREFIX_RE, "").trim();
+    if (!cleaned || isEducationLabeledLine(cleaned)) continue;
+    for (const part of expandMultiLabelSkillLines(cleaned)) {
+      const partClean = part.trim();
+      if (isEducationLabeledLine(partClean)) continue;
+      if (SKILL_LABEL_LINE_RE.test(partClean)) labeled.push(partClean);
+    }
+  }
+
+  // Paste blobs with few newlines: scan the whole string for Label: … segments.
+  const collapsed = rawText.replace(/\s+/g, " ").trim();
+  if (collapsed) {
+    const matches = [...collapsed.matchAll(INLINE_SKILL_LABEL_RE)];
+    for (let i = 0; i < matches.length; i += 1) {
+      const match = matches[i];
+      const start = (match.index ?? 0) + match[0].length;
+      const end = i + 1 < matches.length ? (matches[i + 1].index ?? collapsed.length) : collapsed.length;
+      const label = match[1];
+      let body = collapsed.slice(start, end).trim().replace(/[|;]+$/, "").trim();
+      // Stop at the next major resume section so we don't swallow Experience/Education.
+      const boundary = body.search(SECTION_BOUNDARY_RE);
+      if (boundary >= 0) body = body.slice(0, boundary).trim();
+      // Keep inline values short — Additional rows are comma lists, not paragraphs.
+      if (body.length > 180) body = body.slice(0, 180).replace(/[,;\s]+$/, "").trim();
+      if (label && body) labeled.push(`${label}: ${body}`);
+    }
+  }
+
+  return parseSkillsSection(labeled);
 }
 
 /**
@@ -688,16 +737,10 @@ export function extractResumeHeuristically(rawText: string): ResumeData {
   experience.push(...salvaged.experience);
   skillsAndInterests = mergeSkills(skillsAndInterests, salvaged.skills);
 
-  // Last resort: scan the raw text for labeled Additional rows even if no skills
-  // section header was recognized (common with messy PDF extraction).
-  if (skillsItemCount(skillsAndInterests) === 0) {
-    const labeled = lines
-      .map((l) => l.replace(BULLET_PREFIX_RE, "").trim())
-      .filter((l) => SKILL_LABEL_LINE_RE.test(l));
-    if (labeled.length) {
-      skillsAndInterests = mergeSkills(skillsAndInterests, parseSkillsSection(labeled));
-    }
-  }
+  // Always scan the raw text for labeled Additional rows — pasted submissions
+  // often bury Certifications:/Languages:/Software: inside Experience or in a
+  // single blob without a clear ADDITIONAL header.
+  skillsAndInterests = mergeSkills(skillsAndInterests, extractSkillsFromRawText(rawText));
 
   const hasSkills = skillsItemCount(skillsAndInterests) > 0;
 

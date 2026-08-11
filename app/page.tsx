@@ -3,12 +3,20 @@ import { HeroCta, BUILD_SECTION_ID } from "@/components/landing/HeroCta";
 import { BuildWizard } from "@/components/wizard/BuildWizard";
 import { Card, CardContent } from "@/components/ui/card";
 
+function SectionGoldDivider() {
+  return (
+    <div className="relative z-10 -my-px w-full" aria-hidden="true">
+      <div className="h-0.5 w-full bg-ucla-gold" />
+    </div>
+  );
+}
+
 const FEATURES = [
   {
     icon: Upload,
     title: "Supports multiple upload types",
     description:
-      "Upload an existing resume (PDF/DOCX), paste rough background text, or start from a completely blank page.",
+      "Upload an existing resume (PDF/DOCX) or paste rough background text to get started.",
   },
   {
     icon: Target,
@@ -47,7 +55,7 @@ export default function Home() {
       <section className="relative overflow-hidden bg-gradient-to-b from-ucla-darkest-blue via-ucla-blue to-ucla-blue">
         <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-6 px-4 pt-20 pb-0 text-center sm:px-6">
           <h1 className="flex w-full max-w-4xl flex-col gap-4 text-ucla-gold sm:gap-5">
-            <span className="text-4xl sm:text-5xl">Anderfy</span>
+            <span className="text-6xl sm:text-7xl">Anderfy</span>
             <span className="text-[clamp(1.35rem,3.8vw,2.25rem)] font-normal whitespace-nowrap">
               An AI-Powered Anderson Resume Builder
             </span>
@@ -62,6 +70,8 @@ export default function Home() {
           <HeroCta />
         </div>
       </section>
+
+      <SectionGoldDivider />
 
       <section className="bg-muted">
         <div className="mx-auto w-full max-w-5xl px-4 py-16 sm:px-6">
@@ -81,6 +91,8 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <SectionGoldDivider />
 
       <section
         id={BUILD_SECTION_ID}

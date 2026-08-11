@@ -169,6 +169,40 @@ Did analysis
   assert.ok(s.certifications.length >= 1 || s.software.length >= 1, JSON.stringify(s));
 }
 
+// Pasted experience blob with Additional labels but no ADDITIONAL header.
+{
+  const pasted = `
+Alex Candidate
+alex@ucla.edu
+EXPERIENCE
+Acme Corp — Software Engineer — 2022-2024
+Built APIs and dashboards
+Skills: Python, SQL, React
+Languages: English, Spanish
+Certifications: AWS Solutions Architect
+Interests: Chess, hiking
+`;
+  const resume = extractResumeHeuristically(pasted);
+  const s = resume.skillsAndInterests;
+  assert.ok(s.software.some((v) => /Python/i.test(v)), `software: ${JSON.stringify(s.software)}`);
+  assert.ok(s.languages.some((v) => /Spanish/i.test(v)), `languages: ${JSON.stringify(s.languages)}`);
+  assert.ok(
+    s.certifications.some((v) => /AWS/i.test(v)),
+    `certs: ${JSON.stringify(s.certifications)}`
+  );
+  assert.ok(s.interests.some((v) => /Chess/i.test(v)), `interests: ${JSON.stringify(s.interests)}`);
+}
+
+// Strip markdown/special chars from Anderson labeled fields.
+{
+  const { sanitizeAndersonFieldValue } = await import("../lib/sanitizeAndersonValue.ts");
+  assert.equal(sanitizeAndersonFieldValue("**Dean's List**"), "Dean's List");
+  assert.equal(sanitizeAndersonFieldValue("# Python"), "Python");
+  assert.equal(sanitizeAndersonFieldValue("*Spanish*"), "Spanish");
+  assert.equal(sanitizeAndersonFieldValue("C#"), "C#");
+  assert.equal(sanitizeAndersonFieldValue("## CFA ##"), "CFA");
+}
+
 console.log("verify-additional-parse: all assertions passed");
 console.log(
   "template-style skills:",

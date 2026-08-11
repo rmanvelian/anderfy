@@ -1,3 +1,4 @@
+import { sanitizeAndersonFieldValue } from "@/lib/sanitizeAndersonValue";
 import { isNoneSpecifiedInUpload, NONE_SPECIFIED_IN_UPLOAD } from "@/lib/uploadNone";
 import type { EducationEntry, ResumeData } from "@/types/resume";
 
@@ -48,7 +49,7 @@ function extractLabeledValue(bullets: string[], label: AndersonEduLabel): string
   for (const bullet of bullets) {
     const match = bullet.trim().match(re);
     if (!match) continue;
-    const value = (match[1] ?? "").trim();
+    const value = sanitizeAndersonFieldValue(match[1] ?? "");
     if (isEducationPlaceholderValue(value)) return null;
     return value;
   }
