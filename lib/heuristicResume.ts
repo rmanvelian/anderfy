@@ -1,6 +1,7 @@
 import { ensureAndersonAdditionalRows } from "@/lib/additionalSection";
 import { ensureAndersonEducationBullets } from "@/lib/educationBullets";
 import { newId } from "@/lib/id";
+import { normalizeResumeText, stripMarkdownHeading } from "@/lib/normalizeResumeText";
 import { sanitizeAndersonFieldValue } from "@/lib/sanitizeAndersonValue";
 import type {
   ContactInfo,
@@ -23,6 +24,7 @@ const BULLET_PREFIX_RE = /^[•\u2022\u25CF\u25AA\u25E6○●▪]\s*|^[-*]\s+/;
 const EMAIL_RE = /[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}/;
 const PHONE_RE = /(\+?\d{1,3}[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/;
 const LINKEDIN_RE = /(?:https?:\/\/)?(?:www\.)?linkedin\.com\/[^\s,|]+/i;
+const GITHUB_RE = /(?:https?:\/\/)?(?:www\.)?github\.com\/[^\s,|]+/i;
 const DATE_TOKEN = "(?:\\d{4}|[A-Za-z]{3,9}\\.?\\s+\\d{4}|Present|Current|Now)";
 const DATE_RANGE_RE = new RegExp(`(${DATE_TOKEN})\\s*(?:-|–|—|to)\\s*(${DATE_TOKEN})`, "i");
 const SINGLE_DATE_RE = new RegExp(`\\b(${DATE_TOKEN})\\b`, "i");
@@ -32,7 +34,8 @@ const ACTION_BULLET_START_RE =
 
 // Anderson-shaped sections. A legacy "leadership" header is folded into Additional
 // volunteer lines (or experience when it looks like a full role with bullets).
-type SectionKey = "education" | "experience" | "leadership" | "skills";
+// "skip" sections (Summary/Objective) are dropped — they are not Anderson sections.
+type SectionKey = "education" | "experience" | "leadership" | "skills" | "skip";
 
 const SECTION_ALIASES: Record<string, SectionKey> = {
   education: "education",
@@ -70,6 +73,13 @@ const SECTION_ALIASES: Record<string, SectionKey> = {
   languages: "skills",
   software: "skills",
   interests: "skills",
+  // Narrative sections — keep out of Experience/Education freeform noise.
+  summary: "skip",
+  "professional summary": "skip",
+  objective: "skip",
+  profile: "skip",
+  about: "skip",
+  "about me": "skip",
 };
 
 /** Longest aliases first so "skills and interests" wins over "skills". */
@@ -94,8 +104,8 @@ function detectSection(line: string): { key: SectionKey; remainder: string } | n
   const trimmed = line.trim();
   if (!trimmed) return null;
 
-  // Strip a leading bullet so "• ADDITIONAL" / "• Experience" still match.
-  const withoutBullet = trimmed.replace(BULLET_PREFIX_RE, "").trim();
+  // Strip a leading bullet / markdown heading so "• ADDITIONAL" / "## Experience" match.
+  const withoutBullet = stripMarkdownHeading(trimmed.replace(BULLET_PREFIX_RE, "").trim());
   const cleaned = withoutBullet.replace(/:$/, "").toLowerCase();
   if (!cleaned) return null;
 
@@ -166,10 +176,11 @@ function extractContact(preambleLines: string[]): ContactInfo {
 
   let name = "";
   for (const line of preambleLines) {
-    const trimmed = line.trim();
+    const trimmed = stripMarkdownHeading(line.trim());
     if (!trimmed) continue;
     if (EMAIL_RE.test(trimmed) || PHONE_RE.test(trimmed) || LINKEDIN_RE.test(trimmed)) continue;
-    name = trimmed.replace(/[|,]+$/, "").trim();
+    if (GITHUB_RE.test(trimmed) && trimmed.includes("|")) continue;
+    name = trimmed.replace(/^#+\s*/, "").replace(/[|,]+$/, "").trim();
     break;
   }
 
@@ -267,6 +278,17 @@ function groupIntoEntries(
         entries.push(current);
       }
       current.bullets.push(withoutBullet);
+      continue;
+    }
+
+    // Soft-wrapped PDF/DOCX lines: lowercase continuations belong on the prior bullet.
+    if (
+      current &&
+      current.bullets.length > 0 &&
+      looksLikeBulletContinuation(withoutBullet)
+    ) {
+      const last = current.bullets.length - 1;
+      current.bullets[last] = `${current.bullets[last]} ${withoutBullet}`.replace(/\s+/g, " ").trim();
       continue;
     }
 
@@ -394,8 +416,9 @@ function splitDelimited(text: string): [string, string] {
 }
 
 function looksLikeLocationLine(line: string): boolean {
-  const trimmed = line.trim();
+  const trimmed = line.trim().replace(/[|]+/g, " ").replace(/\s+/g, " ").trim();
   if (!trimmed || trimmed.length > 48) return false;
+  if (/^remote$/i.test(trimmed)) return true;
   // "Los Angeles, CA" / "New York, NY"
   if (/^[A-Za-z .'-]+,\s*[A-Z]{2}\.?$/.test(trimmed)) return true;
   // "Los Angeles, California" / "London, United Kingdom"
@@ -403,6 +426,33 @@ function looksLikeLocationLine(line: string): boolean {
     return !isDegreeLikeLine(trimmed) && !ACTION_BULLET_START_RE.test(trimmed);
   }
   return false;
+}
+
+function looksLikeJobTitle(line: string): boolean {
+  return /\b(Intern|Engineer|Developer|Manager|Analyst|Consultant|Associate|Director|Lead|Scientist|Designer|Architect|Specialist|Coordinator|Officer|President|Fellow)\b/i.test(
+    line
+  );
+}
+
+/** Peel trailing "Remote" / "City, ST" from "MERIDIAN CLOUD SYSTEMS Austin, TX". */
+function peelTrailingLocation(text: string): { name: string; location: string } {
+  const trimmed = text.trim();
+  const remote = trimmed.match(/\s+(Remote)\s*$/i);
+  if (remote && remote.index !== undefined) {
+    return { name: trimmed.slice(0, remote.index).trim(), location: "Remote" };
+  }
+  // Prefer Title-Case city names so we don't swallow ALL-CAPS org words
+  // ("UCLA ANDERSON SCHOOL OF MANAGEMENT Los Angeles, CA").
+  const citySt = trimmed.match(
+    /\s+([A-Z][a-z]+(?:[\s-][A-Z][a-z]+)*(?:\s+[A-Z][a-z]+)*,\s*[A-Z]{2}\.?)\s*$/
+  );
+  if (citySt && citySt.index !== undefined && citySt.index > 2) {
+    const loc = citySt[1].trim();
+    if (!/\b(School|University|College|Management|Institute|Systems)\b/i.test(loc)) {
+      return { name: trimmed.slice(0, citySt.index).trim(), location: loc };
+    }
+  }
+  return splitNameLocation(trimmed);
 }
 
 function parseExperienceEntry(headerLines: string[], bullets: string[]): ExperienceEntry {
@@ -415,28 +465,55 @@ function parseExperienceEntry(headerLines: string[], bullets: string[]): Experie
   let location = "";
   let title = "";
 
-  const contentLines = stripped.map((s) => s.text.trim()).filter(Boolean);
+  const contentLines = stripped
+    .map((s) => s.text.replace(/[|]+/g, " ").replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+
+  // Markdown / LinkedIn style: "Software Engineer — Meridian Cloud Systems"
+  const titleCompany = contentLines[0]?.match(/^(.+?)\s+[—–]\s+(.+)$/);
+  if (titleCompany && looksLikeJobTitle(titleCompany[1])) {
+    title = titleCompany[1].trim();
+    const peeled = peelTrailingLocation(titleCompany[2].trim());
+    company = peeled.name;
+    location = peeled.location;
+    if (contentLines[1] && looksLikeLocationLine(contentLines[1])) {
+      location = contentLines[1].trim();
+    } else if (contentLines[1] && !location) {
+      const locPeel = peelTrailingLocation(contentLines[1]);
+      if (locPeel.location) location = locPeel.location;
+      else if (looksLikeLocationLine(contentLines[1]) || /^remote$/i.test(contentLines[1])) {
+        location = contentLines[1];
+      }
+    }
+    return { id: newId(), company, location, title, startDate, endDate, bullets };
+  }
 
   if (contentLines.length >= 3 && looksLikeLocationLine(contentLines[1])) {
     // Anderson: Company / Location / Title [/ Dates]
-    const { name, location: loc } = splitNameLocation(contentLines[0]);
-    company = name;
-    location = loc || contentLines[1];
+    const peeled = peelTrailingLocation(contentLines[0]);
+    company = peeled.name;
+    location = peeled.location || contentLines[1];
     title = contentLines[2];
-  } else if (stripped.length >= 2) {
-    const { name, location: loc } = splitNameLocation(stripped[0].text);
-    company = name;
-    location = loc;
-    title = stripped[1].text || stripped.slice(2).map((s) => s.text).join(" ");
-  } else if (stripped.length === 1) {
-    const [left, right] = splitDelimited(stripped[0].text);
+  } else if (contentLines.length >= 2) {
+    // "COMPANY City, ST" + "Title" (+ dates already stripped)
+    const peeled = peelTrailingLocation(contentLines[0]);
+    company = peeled.name;
+    location = peeled.location;
+    title = contentLines[1];
+    if (!location && contentLines.length >= 3 && looksLikeLocationLine(contentLines[2])) {
+      location = contentLines[2];
+    }
+  } else if (contentLines.length === 1) {
+    const [left, right] = splitDelimited(contentLines[0]);
     if (right) {
-      const { name, location: loc } = splitNameLocation(left);
-      company = name;
-      location = loc;
+      const peeled = peelTrailingLocation(left);
+      company = peeled.name;
+      location = peeled.location;
       title = right;
     } else {
-      company = left;
+      const peeled = peelTrailingLocation(left);
+      company = peeled.name;
+      location = peeled.location;
     }
   }
 
@@ -465,17 +542,39 @@ function parseEducationEntry(headerLines: string[], bullets: string[]): Educatio
   let location = "";
   let degreeLine = "";
 
-  if (stripped.length >= 2) {
-    const { name, location: loc } = splitNameLocation(stripped[0].text);
-    school = name;
-    location = loc;
-    degreeLine = stripped.slice(1).map((s) => s.text).join(", ");
-  } else if (stripped.length === 1) {
+  const contentLines = stripped
+    .map((s) => s.text.replace(/[|]+/g, " ").replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+
+  // Markdown style often lists degree first, then school.
+  if (contentLines.length >= 2 && isDegreeLikeLine(contentLines[0]) && !isDegreeLikeLine(contentLines[1])) {
+    degreeLine = contentLines[0];
+    const schoolLine = contentLines[1]
+      .replace(/\bGraduated\b/i, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    const peeled = peelTrailingLocation(schoolLine);
+    school = peeled.name;
+    location = peeled.location;
+    if (contentLines[2] && looksLikeLocationLine(contentLines[2])) {
+      location = contentLines[2];
+    }
+  } else if (contentLines.length >= 2) {
+    const peeled = peelTrailingLocation(contentLines[0]);
+    school = peeled.name;
+    location = peeled.location;
+    if (contentLines.length >= 3 && looksLikeLocationLine(contentLines[1])) {
+      location = location || contentLines[1];
+      degreeLine = contentLines.slice(2).join(", ");
+    } else {
+      degreeLine = contentLines.slice(1).join(", ");
+    }
+  } else if (contentLines.length === 1) {
     // A single header line often packs "School — Degree, Field, GPA X.X" onto one line.
-    const [left, right] = splitDelimited(stripped[0].text);
-    const { name, location: loc } = splitNameLocation(left);
-    school = name;
-    location = loc;
+    const [left, right] = splitDelimited(contentLines[0]);
+    const peeled = peelTrailingLocation(left);
+    school = peeled.name;
+    location = peeled.location;
     degreeLine = right;
   }
 
@@ -514,22 +613,52 @@ function parseEducationEntry(headerLines: string[], bullets: string[]): Educatio
 
 // Note: use "Memberships" (plural) only — Anderson education uses "Membership:"
 // which must stay on the school, not become Additional → Volunteer.
+// Put Frameworks/Tools before Tools so "Frameworks/Tools:" is not split mid-label.
 const SKILL_LABEL_LINE_RE =
-  /^(certifications?|licenses?|languages?|software|tools?|technologies|technical skills?|skills?|volunteer(?:ing)?|memberships|activities|interests?|hobbies)\s*:\s*(.*)$/i;
+  /^(certifications?|licenses?|frameworks\/tools|frameworks|practices|languages?|software|tools?|technologies|technical skills?|skills?|volunteer(?:ing)?|memberships|activities|interests?|hobbies)\s*:\s*(.*)$/i;
 
 /** Inline / mid-paragraph Additional labels (common in pasted resume text). */
+// Negative lookbehind avoids matching "Tools:" inside "Frameworks/Tools:".
 const INLINE_SKILL_LABEL_RE =
-  /\b(Certifications?|Licenses?|Languages?|Software|Tools?|Technologies|Technical Skills?|Skills?|Volunteer(?:ing)?|Memberships|Interests?|Hobbies)\s*:\s*/gi;
+  /(?<![A-Za-z/])(Certifications?|Licenses?|Frameworks\/Tools|Frameworks|Practices|Languages?|Software|Tools?|Technologies|Technical Skills?|Skills?|Volunteer(?:ing)?|Memberships|Interests?|Hobbies)\s*:\s*/gi;
 
 const SECTION_BOUNDARY_RE = /\b(?:EDUCATION|EXPERIENCE|ADDITIONAL|SKILLS(?:\s*(?:&|AND)\s*INTERESTS)?)\b/i;
+
+const SKILL_LABEL_SPLIT_RE =
+  /(?=(?<![A-Za-z/])(?:Certifications?|Licenses?|Frameworks\/Tools|Frameworks|Practices|Languages?|Software|Tools?|Technologies|Skills?|Volunteer(?:ing)?|Memberships|Interests?|Hobbies)\s*:)/i;
 
 /** Split "Certifications: A; Languages: B; Software: C, D" into labeled rows. */
 function expandMultiLabelSkillLines(line: string): string[] {
   const parts = line
-    .split(/(?=\b(?:Certifications?|Licenses?|Languages?|Software|Tools?|Technologies|Skills?|Volunteer(?:ing)?|Memberships|Interests?|Hobbies)\s*:)/i)
+    .split(SKILL_LABEL_SPLIT_RE)
     .map((p) => p.trim().replace(/^[;|,\-–—]+\s*/, ""))
     .filter(Boolean);
   return parts.length > 0 ? parts : [line];
+}
+
+/** Split skill lists on commas/semicolons without breaking "AWS (EC2, S3, RDS)". */
+function splitSkillItems(body: string): string[] {
+  const items: string[] = [];
+  let current = "";
+  let depth = 0;
+  for (const ch of body) {
+    if (ch === "(" || ch === "[") depth += 1;
+    if (ch === ")" || ch === "]") depth = Math.max(0, depth - 1);
+    if (depth === 0 && /[,;•|]/.test(ch)) {
+      const cleaned = sanitizeAndersonFieldValue(current);
+      if (cleaned && !/^[\.…]{2,}$/.test(cleaned) && !SECTION_GUIDANCE_RE.test(cleaned)) {
+        items.push(cleaned);
+      }
+      current = "";
+      continue;
+    }
+    current += ch;
+  }
+  const tail = sanitizeAndersonFieldValue(current);
+  if (tail && !/^[\.…]{2,}$/.test(tail) && !SECTION_GUIDANCE_RE.test(tail)) {
+    items.push(tail);
+  }
+  return items;
 }
 
 function parseSkillsSection(lines: string[]): SkillsAndInterests {
@@ -549,12 +678,7 @@ function parseSkillsSection(lines: string[]): SkillsAndInterests {
       const labelMatch = line.match(/^([A-Za-z][A-Za-z &/]*):\s*(.*)$/);
       const label = labelMatch?.[1]?.toLowerCase() ?? "";
       const body = labelMatch ? labelMatch[2] : line;
-      // Don't split volunteer/membership prose on commas as aggressively when the
-      // body looks like a short phrase with "and"; still split certs/software lists.
-      const items = body
-        .split(/[,;•|]/)
-        .map((s) => sanitizeAndersonFieldValue(s))
-        .filter((s) => s && !/^[\.…]{2,}$/.test(s) && !SECTION_GUIDANCE_RE.test(s));
+      const items = splitSkillItems(body);
       if (!items.length) continue;
 
       if (label.includes("language") || (!labelMatch && /language/i.test(line))) {
@@ -566,6 +690,8 @@ function parseSkillsSection(lines: string[]): SkillsAndInterests {
       } else if (
         label.includes("software") ||
         label.includes("tool") ||
+        label.includes("framework") ||
+        label.includes("practice") ||
         label.includes("technolog") ||
         label.includes("skill")
       ) {
@@ -754,7 +880,8 @@ export function recoverEducationLabeledBullets(resume: ResumeData): ResumeData {
 }
 
 export function extractResumeHeuristically(rawText: string): ResumeData {
-  const lines = rawText.split(/\r?\n/).map((l) => l.replace(/\s+$/, ""));
+  const normalized = normalizeResumeText(rawText);
+  const lines = normalized.split(/\r?\n/).map((l) => l.replace(/\s+$/, ""));
   const { preamble, sections } = splitIntoSections(lines);
   const contact = extractContact(preamble);
 
@@ -763,6 +890,7 @@ export function extractResumeHeuristically(rawText: string): ResumeData {
   let skillsAndInterests: SkillsAndInterests = emptySkills();
 
   for (const section of sections) {
+    if (section.key === "skip") continue;
     if (section.key === "skills") {
       skillsAndInterests = mergeSkills(skillsAndInterests, parseSkillsSection(section.lines));
       continue;
@@ -797,7 +925,7 @@ export function extractResumeHeuristically(rawText: string): ResumeData {
   // Always scan the raw text for labeled Additional rows — pasted submissions
   // often bury Certifications:/Languages:/Software: inside Experience or in a
   // single blob without a clear ADDITIONAL header.
-  skillsAndInterests = mergeSkills(skillsAndInterests, extractSkillsFromRawText(rawText));
+  skillsAndInterests = mergeSkills(skillsAndInterests, extractSkillsFromRawText(normalized));
 
   // No EDUCATION/EXPERIENCE headers (or only an ADDITIONAL/Skills block) — the job
   // and school lines usually sit in the preamble. Previously we skipped this path
@@ -887,14 +1015,44 @@ function looksLikeEducationEntry(entry: RawEntry): boolean {
   );
 }
 
+/** Soft-wrapped fragment continuing the previous bullet (common in PDF extract). */
+function looksLikeBulletContinuation(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  if (/^[a-z]/.test(trimmed)) return true;
+  if (DATE_RANGE_RE.test(trimmed) || SINGLE_DATE_RE.test(trimmed)) return false;
+  if (ACTION_BULLET_START_RE.test(trimmed)) return false;
+  if (looksLikeLocationLine(trimmed) || /^remote$/i.test(trimmed)) return false;
+  // Short lowercase-heavy fragments after a wrap ("reporting tool", "product decisions").
+  const words = trimmed.split(/\s+/);
+  if (words.length <= 4 && !/^[A-Z]{2,}(?:\s+[A-Z]{2,})+$/.test(trimmed)) {
+    const lower = words.filter((w) => /^[a-z]/.test(w) || /^[a-z]+$/.test(w)).length;
+    if (lower >= Math.ceil(words.length / 2)) return true;
+  }
+  return false;
+}
+
+/** True when a trailing "." is a sentence end, not "Co." / "Inc." / "Ltd.". */
+function endsLikeSentence(line: string): boolean {
+  const trimmed = line.trim();
+  if (/[!?]$/.test(trimmed)) return true;
+  if (!/\.$/.test(trimmed)) return false;
+  if (/\b(Co|Inc|Ltd|LLC|Corp|Univ|Dept|U\.?S|U\.?K)\.$/i.test(trimmed)) return false;
+  return true;
+}
+
 /** Next role after bullets — org/title line, not an achievement sentence. */
 function looksLikeNewExperienceHeader(line: string): boolean {
   const trimmed = line.trim();
-  if (!trimmed || trimmed.length > 60) return false;
-  if (/[.!?]$/.test(trimmed)) return false;
+  if (!trimmed || trimmed.length > 90) return false;
+  if (/^[a-z]/.test(trimmed)) return false;
+  if (looksLikeBulletContinuation(trimmed)) return false;
+  if (endsLikeSentence(trimmed)) return false;
   if (ACTION_BULLET_START_RE.test(trimmed)) return false;
+  // Markdown / LinkedIn: "Software Engineer — Meridian Cloud Systems"
+  if (/\s+[—–]\s+/.test(trimmed) && looksLikeJobTitle(trimmed)) return true;
   if (DATE_RANGE_RE.test(trimmed)) return true;
-  const words = trimmed.split(/\s+/);
+  const words = trimmed.split(/\s+/).filter((w) => !/^[—–-]+$/.test(w));
   if (words.length >= 6) return false;
   return true;
 }
