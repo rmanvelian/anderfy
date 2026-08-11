@@ -1,4 +1,4 @@
-import { withBasePath } from "@/lib/apiBase";
+import { apiUrl, hasRemoteApiOrigin } from "@/lib/apiBase";
 import { finalizeResumeAgainstSource } from "@/lib/finalizeResume";
 import { extractResumeHeuristically, tailorResumeHeuristically } from "@/lib/heuristicResume";
 import { fitResumeToOnePage } from "@/lib/pageFit";
@@ -6,9 +6,22 @@ import { extractTextFromFile, UnsupportedFileTypeError } from "@/lib/parseFile";
 import type { TailorOptions } from "@/lib/tailorOptions";
 import type { JobPosting, ResumeData } from "@/types/resume";
 
-/** GitHub Pages / `output: "export"` builds have no Node `/api/*` routes. */
+/** GitHub Pages / `output: "export"` builds have no Node `/api/*` on that host. */
 function isStaticExportClient(): boolean {
   return process.env.NEXT_PUBLIC_STATIC_EXPORT === "1";
+}
+
+/**
+ * True when this build will only use the in-browser heuristic (no Claude/OpenAI).
+ * Static GitHub Pages without NEXT_PUBLIC_API_ORIGIN → heuristic only.
+ */
+export function isHeuristicOnlyClient(): boolean {
+  return isStaticExportClient() && !hasRemoteApiOrigin();
+}
+
+/** Prefer same-origin API, or a remote Node API origin when configured. */
+function shouldAttemptApi(): boolean {
+  return !isStaticExportClient() || hasRemoteApiOrigin();
 }
 
 function isResumeData(value: unknown): value is ResumeData {
@@ -25,9 +38,8 @@ function isResumeData(value: unknown): value is ResumeData {
 }
 
 async function readApiJson(res: Response): Promise<unknown | null> {
-  if (!res.ok) return null;
   const contentType = res.headers.get("content-type") || "";
-  // Static hosts often return HTML (200/404) for missing API routes — never treat as JSON.
+  // Static hosts often return HTML for missing API routes — never treat as JSON.
   if (!contentType.includes("application/json")) return null;
   try {
     return await res.json();
@@ -37,21 +49,21 @@ async function readApiJson(res: Response): Promise<unknown | null> {
 }
 
 /**
- * Parse a resume via the Node API when available (local `next dev` / a real
- * host with keys). On GitHub Pages / static export there is no API, so fall
- * back to the free heuristic parser that runs entirely in the browser.
+ * Parse a resume via the Node API when available (local `next dev`, Vercel, or
+ * a remote API origin). On bare GitHub Pages with no API origin, fall back to
+ * the free heuristic parser that runs entirely in the browser.
  */
 export async function parseResumeClient(input: {
   file?: File;
   text?: string;
 }): Promise<ResumeData> {
-  if (!isStaticExportClient()) {
+  if (shouldAttemptApi()) {
     try {
       const formData = new FormData();
       if (input.file) formData.append("file", input.file);
       if (input.text) formData.append("text", input.text);
 
-      const res = await fetch(withBasePath("/api/parse-resume"), {
+      const res = await fetch(apiUrl("/api/parse-resume"), {
         method: "POST",
         body: formData,
       });
@@ -59,11 +71,10 @@ export async function parseResumeClient(input: {
       if (data && typeof data === "object" && isResumeData((data as { resume?: unknown }).resume)) {
         return (data as { resume: ResumeData }).resume;
       }
-      // 404/405 / non-JSON = static host or misconfigured proxy — use local parser.
       if (res.ok || res.status === 404 || res.status === 405) {
-        // fall through
+        // fall through to local
       } else {
-        const err = data as { error?: string } | null;
+        const err = (data as { error?: string } | null) ?? null;
         throw new Error(err?.error || "Failed to parse resume.");
       }
     } catch (error) {
@@ -115,9 +126,9 @@ export async function tailorResumeClient(
   jobPosting: JobPosting,
   options: TailorOptions = {}
 ): Promise<ResumeData> {
-  if (!isStaticExportClient()) {
+  if (shouldAttemptApi()) {
     try {
-      const res = await fetch(withBasePath("/api/tailor"), {
+      const res = await fetch(apiUrl("/api/tailor"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ resume, jobPosting, options }),
@@ -127,7 +138,7 @@ export async function tailorResumeClient(
         return (data as { resume: ResumeData }).resume;
       }
       if (!(res.ok || res.status === 404 || res.status === 405)) {
-        const err = data as { error?: string } | null;
+        const err = (data as { error?: string } | null) ?? null;
         throw new Error(err?.error || "Failed to tailor your resume.");
       }
     } catch (error) {
@@ -142,14 +153,14 @@ export async function tailorResumeClient(
 }
 
 export async function fetchJobPostingText(url: string): Promise<string> {
-  if (isStaticExportClient()) {
+  if (!shouldAttemptApi()) {
     throw new Error(
       "URL fetch isn't available on this static host (GitHub Pages). Paste the job description text instead."
     );
   }
 
   try {
-    const res = await fetch(withBasePath("/api/job-posting/fetch"), {
+    const res = await fetch(apiUrl("/api/job-posting/fetch"), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ url }),
@@ -159,7 +170,7 @@ export async function fetchJobPostingText(url: string): Promise<string> {
       return (data as { text: string }).text;
     }
     if (!(res.ok || res.status === 404 || res.status === 405)) {
-      const err = data as { error?: string } | null;
+      const err = (data as { error?: string } | null) ?? null;
       throw new Error(err?.error || "Couldn't fetch that URL.");
     }
   } catch (error) {
@@ -172,8 +183,6 @@ export async function fetchJobPostingText(url: string): Promise<string> {
 }
 
 function isNetworkOrMissingApi(error: Error): boolean {
-  // fetch() rejects on network failure; static hosts have no /api/* routes.
-  // Also treat failed JSON bodies from HTML fallback pages as missing API.
   return (
     error.name === "TypeError" ||
     error.name === "SyntaxError" ||

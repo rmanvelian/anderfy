@@ -39,6 +39,9 @@ jobs:
         run: npm run build:pages
         env:
           GITHUB_PAGES_REPO: ${{ github.event.repository.name }}
+          # Optional: point the static UI at a Vercel (Node) deploy that has ANTHROPIC_API_KEY.
+          # Set repo secret NEXT_PUBLIC_API_ORIGIN=https://your-app.vercel.app
+          NEXT_PUBLIC_API_ORIGIN: ${{ secrets.NEXT_PUBLIC_API_ORIGIN }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

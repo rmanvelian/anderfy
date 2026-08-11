@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { JobStep } from "@/components/wizard/JobStep";
 import { ReviewStep } from "@/components/wizard/ReviewStep";
 import { SourceStep } from "@/components/wizard/SourceStep";
 import { WizardStepper, type WizardStepKey } from "@/components/wizard/WizardStepper";
+import { isHeuristicOnlyClient } from "@/lib/clientResume";
 import { clearDraft, loadDraft, saveDraft } from "@/lib/storage";
 import { createEmptyResumeData, type JobPosting, type ResumeData } from "@/types/resume";
 
@@ -52,6 +54,20 @@ export function BuildWizard() {
   return (
     <div className="flex flex-col gap-6">
       <WizardStepper current={step} />
+
+      {isHeuristicOnlyClient() && (
+        <Alert>
+          <AlertTitle>Local formatting only (no Claude on this host)</AlertTitle>
+          <AlertDescription>
+            This GitHub Pages build has no server API, so Submit runs a fast in-browser
+            formatter — not Anthropic/OpenAI. That&apos;s why there&apos;s little delay and no
+            AI rewrite. For real Claude parsing/tailoring, deploy the app to{" "}
+            <strong>Vercel</strong> (or another Node host) with{" "}
+            <code className="text-xs">ANTHROPIC_API_KEY</code>, or point Pages at that API via{" "}
+            <code className="text-xs">NEXT_PUBLIC_API_ORIGIN</code>. See the README.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {step === "source" && (
         <SourceStep

@@ -59,7 +59,40 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-### Deploying to GitHub Pages
+### Deploying with Claude AI (recommended: Vercel)
+
+**GitHub Pages cannot run Claude.** Pages only serves static files — there is no Node
+server, so `/api/parse-resume` and `/api/tailor` do not exist there, and an
+`ANTHROPIC_API_KEY` cannot be kept secret in the browser. Localhost works because
+`next dev` runs those API routes with keys from `.env.local`.
+
+To get the same AI behavior as localhost on a public URL:
+
+1. Import this repo in [Vercel](https://vercel.com) (Framework Preset: Next.js).
+2. In Vercel → Project → Settings → Environment Variables, add:
+   - `ANTHROPIC_API_KEY` = your key (Production + Preview)
+   - Optional: `ANTHROPIC_MODEL`, `ANTHROPIC_EFFORT`, `LLM_PROVIDER`
+3. Deploy. Use the `*.vercel.app` URL (or a custom domain) for AI-powered builds.
+
+Do **not** put the API key in `NEXT_PUBLIC_*` variables.
+
+### Optional: keep github.io UI, call Vercel for AI
+
+If you want the GitHub Pages site to use Claude without moving the UI off github.io:
+
+1. Deploy the full Next.js app to Vercel with `ANTHROPIC_API_KEY` as above.
+2. On Vercel, also set  
+   `CORS_ALLOWED_ORIGINS=https://<your-user>.github.io,http://localhost:3000`
+3. In the GitHub repo, add Actions secret  
+   `NEXT_PUBLIC_API_ORIGIN=https://your-app.vercel.app`  
+   (the static Pages workflow passes this into `build:pages`).
+4. Redeploy Pages. The static UI will POST to Vercel for parse/tailor; Submit should
+   show a real delay while Claude runs.
+
+Without `NEXT_PUBLIC_API_ORIGIN`, github.io stays in **heuristic-only** mode (instant
+Submit, no AI rewrite). The wizard shows a banner when that mode is active.
+
+### Deploying to GitHub Pages (static / no AI by default)
 
 There is no checked-in root `index.html` — Anderfy is a Next.js app. For GitHub Pages,
 build a **static export** that produces `out/index.html`:
@@ -79,10 +112,9 @@ A GitHub Actions workflow (`.github/workflows/static.yml`) runs this on pushes t
 
 **Enable Pages in the repo:** Settings → Pages → Source: **GitHub Actions**.
 
-**What works on GitHub Pages:** upload/paste → heuristic parse/tailor → edit → PDF/DOCX
-export, all in the browser. Live Claude/OpenAI rewriting and job-URL fetch need a Node
-host (`npm run dev` / `npm start` with API keys) because Pages can't run API routes or
-keep secrets.
+**What works on GitHub Pages alone:** upload/paste → heuristic parse/tailor → edit →
+PDF/DOCX export in the browser. Live Claude/OpenAI needs Vercel (or another Node host)
+as described above.
 
 ### Choosing an AI provider
 
