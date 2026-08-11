@@ -37,23 +37,27 @@ function hasAnyAdditional(skills: SkillsAndInterests | undefined): boolean {
 
 /**
  * Reorder `source` items using `proposed` order, then append any source items
- * the proposal omitted — never drop Additional content the candidate provided.
+ * the proposal omitted — never drop Additional content either side provided.
+ * If source is empty but proposed has real items, keep the proposed items
+ * (critical when the LLM finds skills the heuristic missed).
  */
 export function reorderKeepAllAdditional(
   source: string[] | undefined,
   proposed: string[] | undefined
 ): string[] {
   const originalList = realItems(source);
-  if (originalList.length === 0) return [];
-  if (!proposed || proposed.length === 0) return originalList;
+  const proposedReal = realItems(proposed);
+  if (originalList.length === 0) return proposedReal;
+  if (proposedReal.length === 0) return originalList;
 
-  const originalByLower = new Map(originalList.map((v) => [v.toLowerCase(), v]));
+  const floorByLower = new Map(
+    [...originalList, ...proposedReal].map((v) => [v.toLowerCase(), v])
+  );
   const ordered: string[] = [];
   const used = new Set<string>();
-  for (const value of proposed) {
-    const lower = value.trim().toLowerCase();
-    if (isNoneSpecifiedInUpload(value)) continue;
-    const match = originalByLower.get(lower);
+  for (const value of proposedReal) {
+    const lower = value.toLowerCase();
+    const match = floorByLower.get(lower);
     if (match && !used.has(lower)) {
       ordered.push(match);
       used.add(lower);
@@ -61,9 +65,34 @@ export function reorderKeepAllAdditional(
   }
   for (const value of originalList) {
     const lower = value.toLowerCase();
-    if (!used.has(lower)) ordered.push(value);
+    if (!used.has(lower)) {
+      ordered.push(value);
+      used.add(lower);
+    }
   }
   return ordered;
+}
+
+/** Union two Additional category lists without placeholders or duplicates. */
+export function unionAdditionalLists(
+  a: string[] | undefined,
+  b: string[] | undefined
+): string[] {
+  return reorderKeepAllAdditional([...realItems(a), ...realItems(b)], b);
+}
+
+/** Merge two skills objects, keeping every real item from either side. */
+export function mergeSkillsAndInterests(
+  a: SkillsAndInterests | undefined,
+  b: SkillsAndInterests | undefined
+): SkillsAndInterests {
+  return {
+    certifications: unionAdditionalLists(a?.certifications, b?.certifications),
+    languages: unionAdditionalLists(a?.languages, b?.languages),
+    software: unionAdditionalLists(a?.software, b?.software),
+    volunteer: unionAdditionalLists(a?.volunteer, b?.volunteer),
+    interests: unionAdditionalLists(a?.interests, b?.interests),
+  };
 }
 
 /**

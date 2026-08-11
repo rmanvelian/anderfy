@@ -1,10 +1,14 @@
 import { z } from "zod";
 import { MAX_BULLET_CHARS } from "@/lib/bulletLength";
-import { extractResumeHeuristically, tailorResumeHeuristically } from "@/lib/heuristicResume";
+import { mergeSkillsAndInterests } from "@/lib/additionalSection";
+import { finalizeResumeAgainstSource } from "@/lib/finalizeResume";
+import {
+  extractResumeHeuristically,
+  extractSkillsFromRawText,
+  tailorResumeHeuristically,
+} from "@/lib/heuristicResume";
 import { newId } from "@/lib/id";
 import { chatStructured, isLlmConfigured } from "@/lib/llmClient";
-import { reorderKeepAllAdditional } from "@/lib/additionalSection";
-import { finalizeResumeAgainstSource } from "@/lib/finalizeResume";
 import { fitResumeToOnePage } from "@/lib/pageFit";
 import { mergeOrderedEntries } from "@/lib/tailorMerge";
 import type { TailorOptions } from "@/lib/tailorOptions";
@@ -85,26 +89,15 @@ Rules:
 - "degree" should read like "M.B.A., Full-Time Program" or "B.A., Economics" (degree + program/major together in one string).
 - Split multi-line bullet fragments into separate strings in the "bullets" array.
 - For EVERY education entry, always include exactly these labeled bullets in this order: "Honors: ...", "Leadership: ...", "Membership: ...". Use the candidate's text when present; if a category is missing or only template placeholder dots, use "(None specified in upload)" (e.g. "Honors: (None specified in upload)"). Do not omit these three bullets.
-- ALWAYS populate "skillsAndInterests" from any Additional / Skills / Skills & Interests section (Anderson resumes label this ADDITIONAL). Map labeled rows into the matching arrays:
+- ALWAYS populate "skillsAndInterests" from any Additional / Skills / Skills & Interests section (Anderson resumes label this ADDITIONAL), AND from any labeled rows that appear anywhere in the text (including under Experience or in a pasted blob without a section header). Map labeled rows into the matching arrays:
   - "Certifications: ..." → certifications
   - "Languages: ..." → languages
   - "Software: ..." / "Skills: ..." / "Tools: ..." → software
   - "Volunteer: ..." / "Memberships: ..." → volunteer
   - "Interests: ..." → interests
-  Split comma/semicolon-separated values into individual array items. Do not leave skillsAndInterests empty when such rows exist in the source.
+  Split comma/semicolon-separated values into individual array items. Never drop these items when they appear in the source text.
 - Volunteering/leadership activities that are NOT part of a person's formal education should go in "skillsAndInterests.volunteer" instead.
 - If a field is unknown, use an empty string ("") or empty array ([]) rather than omitting the key.`;
-
-function skillsCount(skills: ResumeData["skillsAndInterests"] | undefined): number {
-  if (!skills) return 0;
-  return (
-    (skills.certifications?.length ?? 0) +
-    (skills.languages?.length ?? 0) +
-    (skills.software?.length ?? 0) +
-    (skills.volunteer?.length ?? 0) +
-    (skills.interests?.length ?? 0)
-  );
-}
 
 export async function extractResumeFromText(rawText: string): Promise<ResumeData> {
   if (isMockMode()) {
@@ -117,34 +110,13 @@ export async function extractResumeFromText(rawText: string): Promise<ResumeData
   );
   const withIds = attachIds(parsed);
   const heuristic = extractResumeHeuristically(rawText);
-  // If the model omitted Additional/skills, fill from the heuristic parser so the
-  // Anderson Additional section is not lost.
-  if (skillsCount(withIds.skillsAndInterests) === 0 && skillsCount(heuristic.skillsAndInterests) > 0) {
-    withIds.skillsAndInterests = heuristic.skillsAndInterests;
-  } else if (skillsCount(heuristic.skillsAndInterests) > 0) {
-    withIds.skillsAndInterests = {
-      certifications: reorderKeepAllAdditional(
-        heuristic.skillsAndInterests.certifications,
-        withIds.skillsAndInterests.certifications
-      ),
-      languages: reorderKeepAllAdditional(
-        heuristic.skillsAndInterests.languages,
-        withIds.skillsAndInterests.languages
-      ),
-      software: reorderKeepAllAdditional(
-        heuristic.skillsAndInterests.software,
-        withIds.skillsAndInterests.software
-      ),
-      volunteer: reorderKeepAllAdditional(
-        heuristic.skillsAndInterests.volunteer,
-        withIds.skillsAndInterests.volunteer
-      ),
-      interests: reorderKeepAllAdditional(
-        heuristic.skillsAndInterests.interests,
-        withIds.skillsAndInterests.interests
-      ),
-    };
-  }
+  const fromRaw = extractSkillsFromRawText(rawText);
+  // Union LLM + heuristic + raw-label scan so pasted Certifications/Languages/
+  // Software lines are never dropped when any path finds them.
+  withIds.skillsAndInterests = mergeSkillsAndInterests(
+    mergeSkillsAndInterests(withIds.skillsAndInterests, heuristic.skillsAndInterests),
+    fromRaw
+  );
   // Prefer heuristic education bullets when the model left a school empty but
   // Honors/Leadership/Membership were present in the source text.
   return finalizeResumeAgainstSource(withIds, {
@@ -246,28 +218,10 @@ function buildTailoredResume(
     contact: resume.contact,
     education: mergeOrderedEntries(resume.education, parsed.education),
     experience: mergeOrderedEntries(resume.experience, parsed.experience),
-    skillsAndInterests: {
-      certifications: reorderKeepAllAdditional(
-        resume.skillsAndInterests.certifications,
-        parsed.skillsAndInterests?.certifications
-      ),
-      languages: reorderKeepAllAdditional(
-        resume.skillsAndInterests.languages,
-        parsed.skillsAndInterests?.languages
-      ),
-      software: reorderKeepAllAdditional(
-        resume.skillsAndInterests.software,
-        parsed.skillsAndInterests?.software
-      ),
-      volunteer: reorderKeepAllAdditional(
-        resume.skillsAndInterests.volunteer,
-        parsed.skillsAndInterests?.volunteer
-      ),
-      interests: reorderKeepAllAdditional(
-        resume.skillsAndInterests.interests,
-        parsed.skillsAndInterests?.interests
-      ),
-    },
+    skillsAndInterests: mergeSkillsAndInterests(
+      resume.skillsAndInterests,
+      parsed.skillsAndInterests
+    ),
   };
   return finalizeResumeAgainstSource(merged, resume);
 }
