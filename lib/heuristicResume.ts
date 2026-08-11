@@ -1,6 +1,7 @@
 import { ensureAndersonAdditionalRows } from "@/lib/additionalSection";
 import { ensureAndersonEducationBullets } from "@/lib/educationBullets";
 import { newId } from "@/lib/id";
+import { sanitizeAndersonFieldValue } from "@/lib/sanitizeAndersonValue";
 import type {
   ContactInfo,
   EducationEntry,
@@ -495,7 +496,7 @@ function parseSkillsSection(lines: string[]): SkillsAndInterests {
       // body looks like a short phrase with "and"; still split certs/software lists.
       const items = body
         .split(/[,;•|]/)
-        .map((s) => s.trim())
+        .map((s) => sanitizeAndersonFieldValue(s))
         .filter((s) => s && !/^[\.…]{2,}$/.test(s) && !SECTION_GUIDANCE_RE.test(s));
       if (!items.length) continue;
 

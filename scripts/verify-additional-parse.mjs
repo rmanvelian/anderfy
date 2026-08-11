@@ -193,6 +193,16 @@ Interests: Chess, hiking
   assert.ok(s.interests.some((v) => /Chess/i.test(v)), `interests: ${JSON.stringify(s.interests)}`);
 }
 
+// Strip markdown/special chars from Anderson labeled fields.
+{
+  const { sanitizeAndersonFieldValue } = await import("../lib/sanitizeAndersonValue.ts");
+  assert.equal(sanitizeAndersonFieldValue("**Dean's List**"), "Dean's List");
+  assert.equal(sanitizeAndersonFieldValue("# Python"), "Python");
+  assert.equal(sanitizeAndersonFieldValue("*Spanish*"), "Spanish");
+  assert.equal(sanitizeAndersonFieldValue("C#"), "C#");
+  assert.equal(sanitizeAndersonFieldValue("## CFA ##"), "CFA");
+}
+
 console.log("verify-additional-parse: all assertions passed");
 console.log(
   "template-style skills:",

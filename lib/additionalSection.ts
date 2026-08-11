@@ -1,3 +1,4 @@
+import { sanitizeAndersonFieldList } from "@/lib/sanitizeAndersonValue";
 import { isNoneSpecifiedInUpload, NONE_SPECIFIED_IN_UPLOAD } from "@/lib/uploadNone";
 import type { ResumeData, SkillsAndInterests } from "@/types/resume";
 
@@ -27,7 +28,7 @@ function nonEmpty(values: string[] | undefined): string[] {
 }
 
 function realItems(values: string[] | undefined): string[] {
-  return nonEmpty(values).filter((v) => !isNoneSpecifiedInUpload(v));
+  return sanitizeAndersonFieldList(values).filter((v) => !isNoneSpecifiedInUpload(v));
 }
 
 function hasAnyAdditional(skills: SkillsAndInterests | undefined): boolean {
