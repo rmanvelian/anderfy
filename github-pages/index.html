@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="refresh"
+      content="0; url=https://anderfy.vercel.app/"
+    />
+    <link rel="canonical" href="https://anderfy.vercel.app/" />
+    <title>Anderfy — redirecting…</title>
+    <script>
+      (function () {
+        var TARGET_ORIGIN = "https://anderfy.vercel.app";
+        var BASE_PATH = "/anderfy";
+        var path = location.pathname || "/";
+        if (path === BASE_PATH || path.indexOf(BASE_PATH + "/") === 0) {
+          path = path.slice(BASE_PATH.length) || "/";
+        }
+        if (path.charAt(0) !== "/") path = "/" + path;
+        location.replace(TARGET_ORIGIN + path + location.search + location.hash);
+      })();
+    </script>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 2rem;
+        line-height: 1.5;
+        color: #323232;
+      }
+    </style>
+  </head>
+  <body>
+    <p>
+      Anderfy has moved to
+      <a href="https://anderfy.vercel.app/"
+        >https://anderfy.vercel.app/</a
+      >.
+    </p>
+  </body>
+</html>
