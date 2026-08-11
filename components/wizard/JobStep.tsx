@@ -144,8 +144,8 @@ export function JobStep({
             Back
           </Button>
           <Button onClick={handleTailor} disabled={tailoring}>
-            {tailoring ? <Loader2 className="size-4 animate-spin" /> : null}
-            Submit
+            {tailoring ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+            {tailoring ? "Working…" : "Submit"}
           </Button>
         </div>
       </CardContent>

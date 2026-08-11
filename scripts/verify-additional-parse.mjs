@@ -193,6 +193,76 @@ Interests: Chess, hiking
   assert.ok(s.interests.some((v) => /Chess/i.test(v)), `interests: ${JSON.stringify(s.interests)}`);
 }
 
+// Freeform paste with skill labels but no EDUCATION/EXPERIENCE headers must still
+// keep jobs/schools (GitHub Pages heuristic path previously returned Additional only).
+{
+  const freeform = `
+Jordan Lee
+jordan@ucla.edu | (310) 555-0199
+Acme Corp
+Los Angeles, CA
+Software Engineer
+2022 - 2024
+Built APIs for checkout
+Improved latency by 30%
+UCLA
+B.A. Economics
+2020
+Certifications: AWS Solutions Architect
+Languages: Spanish
+Software: Python, SQL
+Interests: Hiking
+`;
+  const resume = extractResumeHeuristically(freeform);
+  assert.ok(
+    resume.experience.length >= 1,
+    `freeform+skills must keep experience, got ${JSON.stringify(resume.experience)}`
+  );
+  assert.ok(
+    resume.experience.some((e) => /Acme/i.test(e.company) || /Software Engineer/i.test(e.title)),
+    `expected Acme/Software Engineer role: ${JSON.stringify(resume.experience)}`
+  );
+  assert.ok(
+    resume.education.length >= 1 ||
+      resume.experience.some((e) => /UCLA/i.test(e.company) || /Economics/i.test(e.title)),
+    `expected UCLA/education content: edu=${JSON.stringify(resume.education)} exp=${JSON.stringify(resume.experience)}`
+  );
+  assert.ok(
+    resume.skillsAndInterests.certifications.some((v) => /AWS/i.test(v)),
+    `certs: ${JSON.stringify(resume.skillsAndInterests.certifications)}`
+  );
+}
+
+// ADDITIONAL header alone with preamble jobs (common Anderson paste).
+{
+  const additionalOnlyHeader = `
+Sam Candidate
+sam@ucla.edu
+Beta Inc
+Product Manager
+2021 - 2023
+Shipped roadmap items
+ADDITIONAL Try to limit your bullets to 3-4 areas
+Certifications: CFA Level I
+Languages: Mandarin
+Software: Excel, Tableau
+Interests: Chess
+`;
+  const resume = extractResumeHeuristically(additionalOnlyHeader);
+  assert.ok(
+    resume.experience.length >= 1,
+    `preamble jobs must survive ADDITIONAL section: ${JSON.stringify(resume.experience)}`
+  );
+  assert.ok(
+    resume.experience.some((e) => /Beta/i.test(e.company)),
+    `expected Beta Inc: ${JSON.stringify(resume.experience)}`
+  );
+  assert.ok(
+    resume.skillsAndInterests.certifications.some((v) => /CFA/i.test(v)),
+    `certs: ${JSON.stringify(resume.skillsAndInterests.certifications)}`
+  );
+}
+
 // Strip markdown/special chars from Anderson labeled fields.
 {
   const { sanitizeAndersonFieldValue } = await import("../lib/sanitizeAndersonValue.ts");

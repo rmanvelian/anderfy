@@ -27,6 +27,8 @@ const DATE_TOKEN = "(?:\\d{4}|[A-Za-z]{3,9}\\.?\\s+\\d{4}|Present|Current|Now)";
 const DATE_RANGE_RE = new RegExp(`(${DATE_TOKEN})\\s*(?:-|–|—|to)\\s*(${DATE_TOKEN})`, "i");
 const SINGLE_DATE_RE = new RegExp(`\\b(${DATE_TOKEN})\\b`, "i");
 const HONOR_PHRASES = ["summa cum laude", "magna cum laude", "cum laude", "with honors", "dean's list", "distinction"];
+const ACTION_BULLET_START_RE =
+  /^(Built|Improved|Led|Managed|Developed|Created|Designed|Implemented|Increased|Reduced|Decreased|Launched|Drove|Owned|Partnered|Collaborated|Analyzed|Delivered|Shipped|Spearheaded|Coordinated|Supported|Helped|Worked|Responsible|Optimized|Automated|Established|Negotiated|Presented|Conducted|Executed|Generated|Grew|Scaled|Transformed|Streamlined)\b/i;
 
 // Anderson-shaped sections. A legacy "leadership" header is folded into Additional
 // volunteer lines (or experience when it looks like a full role with bullets).
@@ -192,8 +194,22 @@ function isEducationLabeledLine(line: string): boolean {
 }
 
 function headerComplete(headerLines: string[]): boolean {
+  // Legacy helper — prefer experienceHeaderReady for work history.
   if (headerLines.length >= 2) return true;
   return DATE_RANGE_RE.test(headerLines.join(" ")) || SINGLE_DATE_RE.test(headerLines.join(" "));
+}
+
+/**
+ * Experience headers are often 3–4 lines (company, location, title, dates).
+ * Do not treat "Company + Location" alone as complete — that splits Anderson
+ * pastes into phantom roles and drops real bullets.
+ */
+function experienceHeaderReady(headerLines: string[]): boolean {
+  const joined = headerLines.join(" ");
+  if (DATE_RANGE_RE.test(joined)) return true;
+  if (headerLines.length >= 3 && SINGLE_DATE_RE.test(joined)) return true;
+  // Safety valve for odd layouts with no recognizable dates.
+  return headerLines.length >= 5;
 }
 
 function isDegreeLikeLine(line: string): boolean {
@@ -274,7 +290,28 @@ function groupIntoEntries(
       continue;
     }
 
-    const startNew = !current || current.bullets.length > 0 || headerComplete(current.headerLines);
+    if (!educationMode && current && current.bullets.length === 0 && !experienceHeaderReady(current.headerLines)) {
+      current.headerLines.push(line);
+      continue;
+    }
+
+    // Pasted experience often omits • markers. Once the role header has dates,
+    // treat following plain lines as bullets until the next role begins.
+    if (
+      !educationMode &&
+      current &&
+      experienceHeaderReady(current.headerLines) &&
+      !DATE_RANGE_RE.test(line) &&
+      !(current.bullets.length > 0 && looksLikeNewExperienceHeader(line))
+    ) {
+      current.bullets.push(withoutBullet);
+      continue;
+    }
+
+    const startNew =
+      !current ||
+      current.bullets.length > 0 ||
+      (educationMode ? headerComplete(current.headerLines) : experienceHeaderReady(current.headerLines));
     if (startNew || !current) {
       current = { headerLines: [], bullets: [] };
       entries.push(current);
@@ -356,6 +393,18 @@ function splitDelimited(text: string): [string, string] {
   return [text.trim(), ""];
 }
 
+function looksLikeLocationLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.length > 48) return false;
+  // "Los Angeles, CA" / "New York, NY"
+  if (/^[A-Za-z .'-]+,\s*[A-Z]{2}\.?$/.test(trimmed)) return true;
+  // "Los Angeles, California" / "London, United Kingdom"
+  if (/^[A-Za-z .'-]+,\s*[A-Za-z .'-]+$/.test(trimmed) && trimmed.split(/\s+/).length <= 5) {
+    return !isDegreeLikeLine(trimmed) && !ACTION_BULLET_START_RE.test(trimmed);
+  }
+  return false;
+}
+
 function parseExperienceEntry(headerLines: string[], bullets: string[]): ExperienceEntry {
   const stripped = headerLines.map(stripDateRange);
   const dateLine = stripped.find((s) => s.startDate);
@@ -366,7 +415,15 @@ function parseExperienceEntry(headerLines: string[], bullets: string[]): Experie
   let location = "";
   let title = "";
 
-  if (stripped.length >= 2) {
+  const contentLines = stripped.map((s) => s.text.trim()).filter(Boolean);
+
+  if (contentLines.length >= 3 && looksLikeLocationLine(contentLines[1])) {
+    // Anderson: Company / Location / Title [/ Dates]
+    const { name, location: loc } = splitNameLocation(contentLines[0]);
+    company = name;
+    location = loc || contentLines[1];
+    title = contentLines[2];
+  } else if (stripped.length >= 2) {
     const { name, location: loc } = splitNameLocation(stripped[0].text);
     company = name;
     location = loc;
@@ -742,22 +799,47 @@ export function extractResumeHeuristically(rawText: string): ResumeData {
   // single blob without a clear ADDITIONAL header.
   skillsAndInterests = mergeSkills(skillsAndInterests, extractSkillsFromRawText(rawText));
 
-  const hasSkills = skillsItemCount(skillsAndInterests) > 0;
+  // No EDUCATION/EXPERIENCE headers (or only an ADDITIONAL/Skills block) — the job
+  // and school lines usually sit in the preamble. Previously we skipped this path
+  // whenever any skill labels were found, which produced Additional-only resumes
+  // on the GitHub Pages heuristic path.
+  if (!education.length && !experience.length) {
+    const bodyLines = freeformBodyLines(preamble.length ? preamble : lines, contact);
+    if (bodyLines.length) {
+      const entries = groupIntoEntries(bodyLines, { educationMode: false });
+      for (const entry of entries) {
+        if (looksLikeEducationEntry(entry)) {
+          education.push(parseEducationEntry(entry.headerLines, entry.bullets));
+        } else {
+          experience.push(parseExperienceEntry(entry.headerLines, entry.bullets));
+        }
+      }
+      if (education.length) {
+        const folded = foldEducationLabeledPhantoms(education);
+        education.length = 0;
+        education.push(...folded);
+      }
+      // Skill-label rows that slipped into freeform entries → Additional.
+      const salvagedFreeform = salvageSkillsFromExperience(experience);
+      experience.length = 0;
+      experience.push(...salvagedFreeform.experience);
+      skillsAndInterests = mergeSkills(skillsAndInterests, salvagedFreeform.skills);
 
-  // No recognizable section headers at all (e.g. a short pasted paragraph) — keep the
-  // person's actual text as a single unlabeled experience entry rather than dropping it.
-  if (!education.length && !experience.length && !hasSkills) {
-    const body = lines.filter((l, i) => l.trim() && !(i === 0 && l.trim() === contact.name));
-    if (body.length) {
-      experience.push({
-        id: newId(),
-        company: "",
-        location: "",
-        title: "",
-        startDate: "",
-        endDate: "",
-        bullets: body.map((l) => l.replace(BULLET_PREFIX_RE, "").trim()).slice(0, 20),
-      });
+      // Last resort: keep the pasted body rather than returning Additional alone.
+      if (!education.length && !experience.length) {
+        experience.push({
+          id: newId(),
+          company: "",
+          location: "",
+          title: "",
+          startDate: "",
+          endDate: "",
+          bullets: bodyLines
+            .map((l) => l.replace(BULLET_PREFIX_RE, "").trim())
+            .filter(Boolean)
+            .slice(0, 20),
+        });
+      }
     }
   }
 
@@ -766,6 +848,55 @@ export function extractResumeHeuristically(rawText: string): ResumeData {
   return ensureAndersonAdditionalRows(
     ensureAndersonEducationBullets({ contact, education, experience, skillsAndInterests })
   );
+}
+
+/** Lines that look like real background content (not contact / Additional labels). */
+function freeformBodyLines(sourceLines: string[], contact: ContactInfo): string[] {
+  return sourceLines.filter((line, index) => {
+    const trimmed = line.trim();
+    if (!trimmed) return false;
+    if (index === 0 && contact.name && trimmed === contact.name) return false;
+    if (contact.email && trimmed.includes(contact.email) && trimmed.length < contact.email.length + 40) {
+      // Contact/meta line — skip when it's mostly contact tokens.
+      const withoutContact = trimmed
+        .replace(EMAIL_RE, "")
+        .replace(PHONE_RE, "")
+        .replace(LINKEDIN_RE, "")
+        .replace(/[|,\s]+/g, "")
+        .trim();
+      if (!withoutContact) return false;
+    }
+    const withoutBullet = trimmed.replace(BULLET_PREFIX_RE, "").trim();
+    if (SKILL_LABEL_LINE_RE.test(withoutBullet)) return false;
+    const section = detectSection(trimmed);
+    if (section?.key === "skills") return false;
+    return true;
+  });
+}
+
+function looksLikeEducationEntry(entry: RawEntry): boolean {
+  const first = (entry.headerLines[0] || "").trim();
+  // Achievement lines must not be reclassified as schools when a university
+  // name appears later in a freeform blob.
+  if (ACTION_BULLET_START_RE.test(first)) return false;
+  const header = entry.headerLines.join(" ");
+  if (isDegreeLikeLine(header)) return true;
+  if (entry.bullets.some((b) => isEducationLabeledLine(b))) return true;
+  return /\b(University|College|School of|Institute of Technology|UCLA|USC|Stanford|Harvard|MIT|Anderson)\b/i.test(
+    first
+  );
+}
+
+/** Next role after bullets — org/title line, not an achievement sentence. */
+function looksLikeNewExperienceHeader(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.length > 60) return false;
+  if (/[.!?]$/.test(trimmed)) return false;
+  if (ACTION_BULLET_START_RE.test(trimmed)) return false;
+  if (DATE_RANGE_RE.test(trimmed)) return true;
+  const words = trimmed.split(/\s+/);
+  if (words.length >= 6) return false;
+  return true;
 }
 
 // --- Local (non-AI) tailoring: re-prioritize the user's real bullets/skills by their
